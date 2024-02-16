@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using the following DOI.
+title: Creating a cross asset investment solution for a corporate client.
+version: 0.2.1
+authors:
+  - name: Alice MUNIER
+    email: alice.munier@dauphine.eu 
+  - name: Jérémie VILPELLET
+    email: j.vilpellet@gmail.com
+  - name: Milo SEGUIN
+    email: milo.seguin@dauphine.eu
+  - name: Baptiste ZLOCH
+    email: baptiste.zloch@dauphine.eu
+license: MIT
