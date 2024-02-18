@@ -1,0 +1,3 @@
+- Indice de reference quelle fréquence de rebalancement ?
+- Collecte des 150BP de gestion active annuelle ?
+- €STR perf ou niveau?
