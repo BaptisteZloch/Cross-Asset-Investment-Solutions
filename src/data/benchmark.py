@@ -1,3 +1,4 @@
+from typing import Optional, Self
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -9,9 +10,10 @@ from utility.utils import compute_weights_drift, get_rebalance_dates
 class Benchmark:
     _PATH = "../data/benchmark.csv"
     __BASE_WEIGHTS = {"OISESTR": 0.3, "SPX": 0.2, "SX5T": 0.5}
-    __benchmark_returns = None
-    __weights_df = None
-    __benchmark_perf = None
+    __benchmark_returns: Optional[pd.Series] = None
+    __weights_df: Optional[pd.DataFrame] = None
+    __benchmark_perf: Optional[pd.Series] = None
+    _instance = None
 
     def __init__(
         self, rebalance_frequency: RebalanceFrequency = RebalanceFrequency.MONTH_END
@@ -19,7 +21,7 @@ class Benchmark:
         self.__benchmark_components_returns = self.get_benchmark_returns_data()
         self.__rebalance_frequency = rebalance_frequency
 
-    def __construct_banchmark_history(self):
+    def __construct_benchmark_history(self):
         returns_histo, weights_histo = [], []
         REBALANCE_DATES = get_rebalance_dates(
             start_date=self.__benchmark_components_returns.index[0],
@@ -58,19 +60,19 @@ class Benchmark:
     @property
     def benchmark_returns(self) -> pd.Series:
         if self.__benchmark_returns is None:
-            self.__construct_banchmark_history()
+            self.__construct_benchmark_history()
         return self.__benchmark_returns
 
     @property
     def benchmark_weights(self) -> pd.DataFrame:
         if self.__weights_df is None:
-            self.__construct_banchmark_history()
+            self.__construct_benchmark_history()
         return self.__weights_df
 
     @property
     def benchmark_perf(self) -> pd.Series:
         if self.__benchmark_perf is None:
-            self.__construct_banchmark_history()
+            self.__construct_benchmark_history()
         return self.__benchmark_perf
 
     def get_benchmark_price_data(self) -> pd.DataFrame:
@@ -91,3 +93,13 @@ class Benchmark:
             benchmark[col] = benchmark[col].pct_change().fillna(0)
         benchmark = benchmark.asfreq("B", method="ffill")
         return benchmark[list(self.__BASE_WEIGHTS.keys())]
+
+    def __new__(cls, *args, **kwargs) -> Self:
+        """Singleton pattern implementation.
+
+        Returns:
+            Self: The unique instance of the class.
+        """
+        if cls._instance is None:
+            cls._instance = super(Benchmark, cls).__new__(cls)
+        return cls._instance
