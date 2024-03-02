@@ -1,3 +1,15 @@
-- Indice de reference quelle fréquence de rebalancement ?
-- Collecte des 150BP de gestion active annuelle ?
-- €STR perf ou niveau?
+- Indice de reference quelle fréquence de rebalancement pour le bench ? Mensuelle
+- Collecte des 150BP de gestion active annuelle ? Oui
+- €STR perf ou niveau? historique OIS OIA (ticker)
+- L'alpha portable ? monétaire
+SX5T dividend reinvesti, SPX (20%) dividend reinvesti
+- Type de rendu ? PPT montrant linteret de la stratégie 
+- Un descriptif détaillé des moteurs utilisés dans la gestion ?
+Gestion flexible
+OPCVM -> fonds (gros frais)
+ETF -> tracker (peu de frais)
+futures (pas de frais) 30% max d'expo
+chainer les futures -> commence par A ou 1 
+levier = beta expo au marché actions
+
+

@@ -10,3 +10,4 @@ ipykernel
 black
 openpyxl
 yfinance
+tqdm
