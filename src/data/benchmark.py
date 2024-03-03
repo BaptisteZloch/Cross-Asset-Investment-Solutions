@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from utility.types import RebalanceFrequency
+from utility.types import RebalanceFrequencyEnum
 from utility.utils import compute_weights_drift, get_rebalance_dates
 
 
@@ -16,7 +16,8 @@ class Benchmark:
     _instance = None
 
     def __init__(
-        self, rebalance_frequency: RebalanceFrequency = RebalanceFrequency.MONTH_END
+        self,
+        rebalance_frequency: RebalanceFrequencyEnum = RebalanceFrequencyEnum.MONTH_END,
     ) -> None:
         self.__benchmark_components_returns = self.get_benchmark_returns_data()
         self.__rebalance_frequency = rebalance_frequency
@@ -61,6 +62,7 @@ class Benchmark:
     def benchmark_returns(self) -> pd.Series:
         if self.__benchmark_returns is None:
             self.__construct_benchmark_history()
+        self.__benchmark_returns.name = "benchmark_returns"
         return self.__benchmark_returns
 
     @property
@@ -73,6 +75,7 @@ class Benchmark:
     def benchmark_perf(self) -> pd.Series:
         if self.__benchmark_perf is None:
             self.__construct_benchmark_history()
+        self.__benchmark_perf.name = "benchmark_perf"
         return self.__benchmark_perf
 
     def get_benchmark_price_data(self) -> pd.DataFrame:

@@ -5,20 +5,20 @@ import numpy.typing as npt
 
 import pandas as pd
 
-from utility.types import RebalanceFrequency
+from utility.types import RebalanceFrequencyEnum
 
 
 def get_rebalance_dates(
     start_date: Union[datetime, str],
     end_date: Union[datetime, str],
-    frequency: RebalanceFrequency = RebalanceFrequency.MONTH_START,
+    frequency: RebalanceFrequencyEnum = RebalanceFrequencyEnum.MONTH_START,
 ) -> Set[Union[pd.Timestamp, datetime]]:
     """Generate a Series of the rebalance date during the backtest period based on the frequency.
 
     Args:
         start_date (Union[datetime, str]): The start date.
         end_date (Union[datetime, str]):  The start date.
-        frequency (RebalanceFrequency, optional): The chosen frequency, daily, monthly, quarterly... Defaults to "monthly".
+        frequency (RebalanceFrequencyEnum, optional): The chosen frequency, daily, monthly, quarterly... Defaults to "monthly".
 
     Returns:
         Set[Union[pd.Timestamp, datetime]]: The rebalance dates.
