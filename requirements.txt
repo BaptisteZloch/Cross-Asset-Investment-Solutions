@@ -13,3 +13,4 @@ yfinance
 tqdm
 Pyarrow 
 scikit-learn
+hmmlearn

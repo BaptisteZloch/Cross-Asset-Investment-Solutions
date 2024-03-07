@@ -7,6 +7,7 @@ class Universe:
     __universe: Optional[pd.DataFrame] = None
     _instance = None
 
+    @staticmethod
     def __load_universe():
         Universe.__universe = pd.read_csv(
             "../data/universe.csv", parse_dates=True, index_col="date"
