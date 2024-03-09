@@ -9,6 +9,14 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 
 def normalize_regime(signal: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+    """Function that normalize the regime with 1 = Bearish regime and 0 bullish regime. historically the proportion of bullish regime is higher. We applied this rule here.
+
+    Args:
+        signal (npt.NDArray[np.float32]): The 1 and 0 signal detected with the detection algorithm.
+
+    Returns:
+        npt.NDArray[np.float32]: The normalized regime
+    """
     proportion = np.mean(signal)
     if proportion >= 0.5:
         return -1 * signal + 1
@@ -23,15 +31,15 @@ def detect_market_regime(
     *args,
     **kwargs
 ) -> npt.NDArray[np.float32]:
-    """_summary_
+    """Detect market regime given a dataset and an algorithm. This process in offline which means it uses the whole dataset for prediction and training.
 
     Args:
-        market_data (npt.NDArray[np.float32]): _description_
-        scale_data (bool, optional): _description_. Defaults to True.
-        scaler_type (Literal[&quot;robust&quot;, &quot;standard&quot;, &quot;minmax&quot;], optional): _description_. Defaults to "standard".
+        market_data (npt.NDArray[np.float32]): The vector corresponding to the market on which we want to cluster the regimes.
+        scale_data (bool, optional): Whether to scale the data or not using the scaler_type. Defaults to True.
+        scaler_type (Literal[&quot;robust&quot;, &quot;standard&quot;, &quot;minmax&quot;], optional): The scaler type used to scale the data. If scale_data is False this argument is ignored. Defaults to "standard".
 
     Returns:
-        npt.NDArray[np.float32]: _description_
+        npt.NDArray[np.float32]: The regime detected on the market data.
     """
     if len(market_data.shape) == 1:
         market_data = market_data.reshape(-1, 1)
