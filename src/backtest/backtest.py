@@ -5,7 +5,11 @@ from tqdm import tqdm
 from data.universe import Universe
 from portfolio_management.allocation import ALLOCATION_DICT
 from portfolio_management.market_regime import detect_market_regime
-from utility.types import AllocationMethodsEnum, RebalanceFrequencyEnum
+from utility.types import (
+    AllocationMethodsEnum,
+    RebalanceFrequencyEnum,
+    RegimeDetectionModels,
+)
 
 from utility.utils import compute_weights_drift, get_rebalance_dates
 
@@ -19,6 +23,7 @@ class Backtester:
         self,
         allocation_type: AllocationMethodsEnum,
         rebalance_frequency: RebalanceFrequencyEnum,
+        market_regime_model: RegimeDetectionModels,
         transaction_cost_by_securities: Dict[str, float],
         bullish_leverage_by_securities: Optional[Dict[str, float]] = None,
         bearish_leverage_by_securities: Optional[Dict[str, float]] = None,
@@ -51,6 +56,7 @@ class Backtester:
             if index in REBALANCE_DATES or first_rebalance is False:
                 REGIMES = detect_market_regime(
                     self.__market.loc[:index].to_numpy().reshape(-1, 1),
+                    market_regime_detection_algorithm=market_regime_model,
                     scale_data=True,
                     scaler_type="robust",
                 )

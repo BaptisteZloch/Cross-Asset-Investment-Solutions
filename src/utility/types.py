@@ -17,6 +17,22 @@ class RebalanceFrequencyEnum(StrEnum):
         return list(map(lambda c: c.name, cls))
 
 
+class RegimeDetectionModels(StrEnum):
+    GAUSSIAN_MIXTURE = "gaussian_mixture"
+    HIDDEN_MARKOV_MODEL = "hmm"
+    KMEANS = "kmeans"
+    BISECTING_KMEANS = "bisecting_kmeans"
+    JUMP_MODEL = "jump_model"
+
+    @classmethod
+    def list_values(cls):
+        return list(map(lambda c: c.value, cls))
+
+    @classmethod
+    def list_names(cls):
+        return list(map(lambda c: c.name, cls))
+
+
 class AllocationMethodsEnum(StrEnum):
     EQUALLY_WEIGHTED = "EQUALLY_WEIGHTED"
     # MAX_SHARPE = "MAX_SHARPE"

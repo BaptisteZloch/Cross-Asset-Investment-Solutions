@@ -4,8 +4,11 @@ import numpy.typing as npt
 
 from hmmlearn.hmm import GaussianHMM
 from sklearn.base import TransformerMixin
+from sklearn.cluster import BisectingKMeans, KMeans
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+
+from utility.types import RegimeDetectionModels
 
 
 def normalize_regime(signal: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
@@ -25,7 +28,7 @@ def normalize_regime(signal: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]
 
 def detect_market_regime(
     market_data: npt.NDArray[np.float32],
-    market_regime_detection_algorithm: Literal["hmm", "gaussian_mixture", "jump_model"],
+    market_regime_detection_algorithm: RegimeDetectionModels = RegimeDetectionModels.HIDDEN_MARKOV_MODEL,
     scale_data: bool = True,
     scaler_type: Literal["robust", "standard", "minmax"] = "standard",
     *args,
@@ -35,6 +38,7 @@ def detect_market_regime(
 
     Args:
         market_data (npt.NDArray[np.float32]): The vector corresponding to the market on which we want to cluster the regimes.
+        market_regime_detection_algorithm (RegimeDetectionModels): The desired model to use for market regime detection.
         scale_data (bool, optional): Whether to scale the data or not using the scaler_type. Defaults to True.
         scaler_type (Literal[&quot;robust&quot;, &quot;standard&quot;, &quot;minmax&quot;], optional): The scaler type used to scale the data. If scale_data is False this argument is ignored. Defaults to "standard".
 
@@ -53,7 +57,7 @@ def detect_market_regime(
     else:
         X = market_data
     if market_regime_detection_algorithm == "hmm":
-        HMM_MODEL = GaussianHMM(
+        MODEL = GaussianHMM(
             n_components=2,
             covariance_type="full",
             algorithm=kwargs.get("algorithm", "viterbi"),
@@ -63,24 +67,33 @@ def detect_market_regime(
             verbose=False,
             implementation="log",
         )
-
-        HMM_MODEL.fit(X)
-        return normalize_regime(HMM_MODEL.predict(X))
     elif market_regime_detection_algorithm == "gaussian_mixture":
-        GM_MODEL = GaussianMixture(
+        MODEL = GaussianMixture(
             n_components=2,
             covariance_type="full",
             init_params="k-means++",
-            random_state=True,
+            random_state=42,
             verbose=0,
             max_iter=100,
         )
-
-        GM_MODEL.fit(X)
-        return normalize_regime(GM_MODEL.predict(X))
+    elif market_regime_detection_algorithm == "kmeans":
+        MODEL = KMeans(
+            n_clusters=2, init="k-means++", random_state=42, verbose=0, max_iter=100
+        )
+    elif market_regime_detection_algorithm == "bisecting_kmeans":
+        MODEL = BisectingKMeans(
+            n_clusters=2,
+            init="k-means++",
+            random_state=42,
+            verbose=0,
+            max_iter=100,
+            bisecting_strategy="largest_cluster",
+        )
     elif market_regime_detection_algorithm == "jump_model":
         raise NotImplementedError()
     else:
         raise ValueError(
             "Provide a valid market_regime_detection_algorithm among : hmm, gaussian_mixture, jump_model"
         )
+    MODEL.fit(X)
+    return normalize_regime(MODEL.predict(X))
