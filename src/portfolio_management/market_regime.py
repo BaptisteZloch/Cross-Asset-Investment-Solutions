@@ -17,7 +17,7 @@ def normalize_regime(signal: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]
 def detect_market_regime(
     market_data: npt.NDArray[np.float32],
     scale_data: bool = True,
-    scaler: Literal["robust", "standard", "minmax"] = "robust",
+    scaler: Literal["robust", "standard", "minmax"] = "standard",
     *args,
     **kwargs
 ) -> npt.NDArray[np.float32]:
@@ -34,11 +34,11 @@ def detect_market_regime(
         X = market_data
     HMM_MODEL = GaussianHMM(
         n_components=2,
-        covariance_type="diag",
+        covariance_type="full",
         algorithm=kwargs.get("algorithm", "viterbi"),
         random_state=42,
         n_iter=100,
-        tol=0.1,
+        tol=0.001,
         verbose=False,
         implementation="log",
     )

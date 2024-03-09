@@ -17,66 +17,66 @@ class Allocation:
     ) -> Dict[str, float]:
         return {asset: 1 / len(selected_assets) for asset in selected_assets}
 
-    @staticmethod
-    def max_sharpe_allocation(
-        selected_assets: List[str],
-        selected_assets_returns: pd.DataFrame,
-        covariance_matrix_shrinkage: bool = True,
-        *arg,
-        **kwargs
-    ) -> Dict[str, float]:
-        def mean_variance_objective(weights: npt.NDArray[np.float32], arg: List[Any]):
-            cov_matrix = arg[0]
-            expected_return_vector = arg[1]
-            # rf = float(arg[2])
-            # Risk of the portfolio
-            sigma_p = np.sqrt(weights @ cov_matrix @ weights.T)
-            expected_return = expected_return_vector @ weights.T
-            return -expected_return / sigma_p
+    # @staticmethod
+    # def max_sharpe_allocation(
+    #     selected_assets: List[str],
+    #     selected_assets_returns: pd.DataFrame,
+    #     covariance_matrix_shrinkage: bool = True,
+    #     *arg,
+    #     **kwargs
+    # ) -> Dict[str, float]:
+    #     def mean_variance_objective(weights: npt.NDArray[np.float32], arg: List[Any]):
+    #         cov_matrix = arg[0]
+    #         expected_return_vector = arg[1]
+    #         # rf = float(arg[2])
+    #         # Risk of the portfolio
+    #         sigma_p = np.sqrt(weights @ cov_matrix @ weights.T)
+    #         expected_return = expected_return_vector @ weights.T
+    #         return -expected_return / sigma_p
 
-        w0 = np.array([1 / len(selected_assets) for _ in selected_assets])
+    #     w0 = np.array([1 / len(selected_assets) for _ in selected_assets])
 
-        cons = (
-            {
-                "type": "eq",
-                "fun": lambda weights: np.sum(weights) - 1,
-            },  # return 0 if sum of the weights is 1
-            {"type": "ineq", "fun": lambda x: x},  # Long only
-        )
+    #     cons = (
+    #         {
+    #             "type": "eq",
+    #             "fun": lambda weights: np.sum(weights) - 1,
+    #         },  # return 0 if sum of the weights is 1
+    #         {"type": "ineq", "fun": lambda x: x},  # Long only
+    #     )
 
-        bounds = tuple([(0.0, 1.0) for _ in selected_assets])
-        if covariance_matrix_shrinkage:
-            covariance_matrix = selected_assets_returns.cov().to_numpy()
-        else:
-            cov = ShrunkCovariance().fit(selected_assets_returns.cov().to_numpy())
-            covariance_matrix = cov.covariance_
-        weights = minimize(
-            mean_variance_objective,
-            x0=w0,
-            args=[
-                covariance_matrix,
-                selected_assets_returns.mean().to_numpy(),
-            ],
-            method="SLSQP",
-            constraints=cons,
-            bounds=bounds,
-            options={"disp": False},
-            tol=1e-10,
-        ).x
-        return {
-            security: unit_weight
-            for security, unit_weight in zip(
-                selected_assets,
-                map(lambda w: w if w >= 0.0001 else 0, weights),
-            )
-        }
+    #     bounds = tuple([(0.0, 1.0) for _ in selected_assets])
+    #     if covariance_matrix_shrinkage:
+    #         covariance_matrix = selected_assets_returns.cov().to_numpy()
+    #     else:
+    #         cov = ShrunkCovariance().fit(selected_assets_returns.cov().to_numpy())
+    #         covariance_matrix = cov.covariance_
+    #     weights = minimize(
+    #         mean_variance_objective,
+    #         x0=w0,
+    #         args=[
+    #             covariance_matrix,
+    #             selected_assets_returns.mean().to_numpy(),
+    #         ],
+    #         method="SLSQP",
+    #         constraints=cons,
+    #         bounds=bounds,
+    #         options={"disp": False},
+    #         tol=1e-10,
+    #     ).x
+    #     return {
+    #         security: unit_weight
+    #         for security, unit_weight in zip(
+    #             selected_assets,
+    #             map(lambda w: w if w >= 0.0001 else 0, weights),
+    #         )
+    #     }
 
 
 ALLOCATION_DICT: Dict[
     AllocationMethodsEnum, Callable[[List[str], pd.DataFrame], Dict[str, float]]
 ] = {
     AllocationMethodsEnum.EQUALLY_WEIGHTED: Allocation.equal_weighted_allocation,
-    AllocationMethodsEnum.MAX_SHARPE: Allocation.max_sharpe_allocation,
+    # AllocationMethodsEnum.MAX_SHARPE: Allocation.max_sharpe_allocation,
 }
 
 # @staticmethod

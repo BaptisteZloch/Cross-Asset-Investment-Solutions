@@ -19,7 +19,7 @@ class RebalanceFrequencyEnum(StrEnum):
 
 class AllocationMethodsEnum(StrEnum):
     EQUALLY_WEIGHTED = "EQUALLY_WEIGHTED"
-    MAX_SHARPE = "MAX_SHARPE"
+    # MAX_SHARPE = "MAX_SHARPE"
 
     @classmethod
     def list_values(cls):
