@@ -52,7 +52,7 @@ class Backtester:
                 REGIMES = detect_market_regime(
                     self.__market.loc[:index].to_numpy().reshape(-1, 1),
                     scale_data=True,
-                    scaler="robust",
+                    scaler_type="robust",
                 )
                 regimes_histo.append((index, REGIMES[-1]))
                 if REGIMES[-1] == 1:  # Bearish market
