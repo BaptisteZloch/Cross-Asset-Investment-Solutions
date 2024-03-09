@@ -25,17 +25,16 @@ def estimate_dynamic_beta_and_alpha(
     kf.P = np.array([[1, 0], [0, 1]])  # Initial state covariance matrix
 
     kf.F = np.array([[1, 0], [0, 1]])
-    kf.Q = np.array([[0.1, 0], [0, 0.01]])
+    kf.Q = np.array([[0.1, 0], [0, 1]])  # Covariance process
     # kf.H = np.array([[1, 0]])
-    kf.R = np.array([[1, 0], [0, 1]])
+    kf.R = np.array([[0.1, 0], [0, 0.001]])  # Covariance measure
 
-    # Kalman filter loop
     estimated_beta, estimated_alpha = [], []
     for asset_return, market_return in tqdm(
         zip(asset_returns, market_returns),
         total=asset_returns.shape[0],
         leave=False,
-        desc="computing dynamic alpha and beta estimates",
+        desc="Computing estimates",
     ):
         kf.predict()
         kf.update(z=asset_return, H=np.array([[1, market_return], [0, 0]]))
@@ -64,17 +63,16 @@ def predict_next_beta_and_alpha(
     kf.P = np.array([[1, 0], [0, 1]])  # Initial state covariance matrix
 
     kf.F = np.array([[1, 0], [0, 1]])
-    kf.Q = np.array([[0.1, 0], [0, 0.01]])
+    kf.Q = np.array([[0.1, 0], [0, 1]])  # Covariance process
     # kf.H = np.array([[1, 0]])
-    kf.R = np.array([[1, 0], [0, 1]])
+    kf.R = np.array([[0.1, 0], [0, 0.001]])  # Covariance measure
 
-    # Kalman filter loop
     estimated_beta, estimated_alpha = [], []
     for asset_return, market_return in tqdm(
         zip(asset_returns, market_returns),
         total=asset_returns.shape[0],
         leave=False,
-        desc="computing dynamic alpha and beta estimates",
+        desc="Computing estimates",
     ):
         kf.predict()
         kf.update(z=asset_return, H=np.array([[1, market_return], [0, 0]]))
