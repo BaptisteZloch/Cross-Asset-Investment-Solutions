@@ -85,7 +85,7 @@ class Backtester:
 
         Returns:
         ----
-            Tuple[Union[pd.Series, pd.DataFrame], ...]: Return a tuple of DataFrame/Series respectively : The returns of the strategy ptf_returns (Series), the historical daily weights of the portfolio ptf_weights_df (DataFrame), The regime a the beta at each detection date ptf_regime_beta_df (DataFrame), all risk/perf metrics of the strategy ptf_metrics_df (DataFrame)
+            Tuple[Union[pd.Series, pd.DataFrame], ...]: Return a tuple of DataFrame/Series respectively : The returns of the strategy and the bench ptf_and_bench (Series), the historical daily weights of the portfolio ptf_weights_df (DataFrame), The regime a the beta at each detection date ptf_regime_beta_df (DataFrame), all risk/perf metrics of the strategy ptf_metrics_df (DataFrame)
         """
         assert starting_offset >= 0, "Error, provide a positive starting offset."
         assert set(transaction_cost_by_securities.keys()) == set(
@@ -260,7 +260,11 @@ class Backtester:
                 ptf_and_bench["returns"],
             )
         if plot_performance is True:
-            plot_from_trade_df(price_df=ptf_and_bench)
+            plot_from_trade_df(
+                ptf_and_bench,
+                ptf_weights_df,
+                ptf_regime_beta_df,
+            )
         if print_metrics is True:
-            return ptf_returns, ptf_weights_df, ptf_regime_beta_df, ptf_metrics_df
-        return ptf_returns, ptf_weights_df, ptf_regime_beta_df
+            return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df, ptf_metrics_df
+        return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df

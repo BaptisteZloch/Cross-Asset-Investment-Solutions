@@ -1,54 +1,24 @@
 # ALL THE CODE BELOW COMES FROM THE LIBRARY CREATED BY BAPTISTE ZLOCH :
 # https://pypi.org/project/quant-invest-lab/
-from typing import Optional, Union
 import pandas as pd
 import numpy as np
+from scipy.stats import gaussian_kde
+from typing import Optional
+import matplotlib.pyplot as plt
 
-from bokeh.plotting import figure
-from bokeh.layouts import gridplot
-from bokeh.io import show, output_notebook
-from bokeh.models import (
-    Model,
-    ColumnDataSource,
-)
-from bokeh.transform import dodge
-
-
-from quant_invest_lab.constants import (
-    DT_FORMATTER,
-    RETURNS_FORMATTER,
-    SALMON_COLOR,
-    VIOLET_COLOR,
-    BACKGROUND_COLOR,
-    GRID_COLOR,
-    UNIT_PLOT_HEIGHT,
-    UNIT_PLOT_WIDTH,
-    TIMEFRAMES,
-)
-
-from quant_invest_lab.types import Timeframe
-from quant_invest_lab.utils import from_returns_to_bins_count
 
 from backtest.metrics import (
-    expectancy,
-    profit_factor,
     omega_ratio,
-    payoff_ratio,
     construct_report_dataframe,
 )
-
-
-output_notebook()
 
 
 def print_portfolio_strategy_report(
     portfolio_returns: pd.Series,
     benchmark_returns: Optional[pd.Series] = None,
-    timeframe: Timeframe = "1day",
 ) -> pd.DataFrame:
-    assert timeframe in TIMEFRAMES, f"Timeframe {timeframe} not supported"
     report_df = construct_report_dataframe(
-        portfolio_returns, benchmark_returns, timeframe
+        portfolio_returns, benchmark_returns
     )
     if benchmark_returns is not None:
         print(f"\n{'  Returns statistical information  ':-^50}")
@@ -76,10 +46,10 @@ def print_portfolio_strategy_report(
             ", >3 = fat tails, <3 = thin tails",
         )
         print(
-            f"{timeframe}-95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % vs {100*report_df.loc['VaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
+            f"95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % vs {100*report_df.loc['VaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
         )
         print(
-            f"{timeframe}-95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % vs {100*report_df.loc['CVaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
+            f"95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % vs {100*report_df.loc['CVaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
         )
 
         print(f"\n{'  Strategy statistical information  ':-^50}")
@@ -136,10 +106,10 @@ def print_portfolio_strategy_report(
             ", >3 = fat tails, <3 = thin tails",
         )
         print(
-            f"{timeframe}-95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % -> the lower the better"
+            f"95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % -> the lower the better"
         )
         print(
-            f"{timeframe}-95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % -> the lower the better"
+            f"95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % -> the lower the better"
         )
 
         print(f"\n{'  Strategy statistical information  ':-^50}")
@@ -165,168 +135,108 @@ def print_portfolio_strategy_report(
     return report_df
 
 
-def plot_cumulative_performances(
-    portfolio_cumulative_returns: pd.Series,
-    benchmark_cumulative_returns: Optional[pd.Series] = None,
-) -> Model:
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Cumulative performance",
-        x_axis_label="Datetime",
-        x_axis_type="datetime",
-        y_axis_label="Cumulative performance (Log-scale)",
-        y_axis_type="log",
-        background_fill_color=BACKGROUND_COLOR,
+def plot_from_trade_df(
+    ptf_and_bench: pd.DataFrame,
+    ptf_weights_evolution: pd.DataFrame,
+    ptf_beta_and_regime: pd.DataFrame,
+) -> None:
+    """Plot historical price, equity progression, drawdown evolution and return distribution.
+
+    Args:
+        ptf_and_bench (pd.DataFrame): Dataframe containing the returns, cum returns, drawdown for both the strategy portflio and the benchmark
+        ptf_weights_evolution (pd.DataFrame): A dataframe with the weights of the portfolio at each date
+        ptf_beta_and_regime (pd.DataFrame): A dataframe containing the beta and the market regime over time.
+    """    
+    fig, ax = plt.subplots(4, 2, figsize=(25, 30))
+
+    ############################################## Perf and Regimes
+    ax_l = ax[0, 0].twinx()
+    ax_l.fill_between(
+        ptf_beta_and_regime.index,
+        ptf_beta_and_regime["Regime"],
+        alpha=0.2,
+        color="red",
+        step="pre",
     )
-    if benchmark_cumulative_returns is not None:
-        p.line(
-            x=benchmark_cumulative_returns.index,
-            y=benchmark_cumulative_returns,
-            color=VIOLET_COLOR,
-            line_width=2,
-            legend_label="Benchmark cumulative return",
-        )
-    p.line(
-        x=portfolio_cumulative_returns.index,
-        y=portfolio_cumulative_returns,
-        color=SALMON_COLOR,
-        line_width=2,
-        legend_label="Portfolio cumulative return",
+    ax[0, 0].plot(
+        ptf_and_bench["strategy_cum_returns"], color="orange", label="Portfolio"
     )
-    p.xaxis.formatter = DT_FORMATTER
-
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_returns_distribution(
-    portfolio_returns: pd.Series,
-    benchmark_returns: Optional[pd.Series] = None,
-) -> Model:
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Returns distribution",
-        x_axis_label="returns",
-        y_axis_label="Count",
-        background_fill_color=BACKGROUND_COLOR,
+    ax[0, 0].plot(ptf_and_bench["cum_returns"], color="blue", label="Benchmark")
+    ax[0, 0].set_xlabel("Datetime", fontsize=15)
+    ax[0, 0].set_ylabel("Returns", fontsize=15)
+    ax_l.set_ylabel("Regimes", fontsize=15)
+    ax[0, 0].set_title(
+        f"Performance benchmark vs portfolio with regime detected", fontsize=20
     )
-    hist, edges = np.histogram(
-        portfolio_returns,
-        density=True,
-        bins=from_returns_to_bins_count(portfolio_returns),
+    ax[0, 0].grid()
+    ax[0, 0].legend(loc='lower right',fontsize=15)
+    ############################################## DRAWDOWN
+    ax[1, 0].fill_between(
+        ptf_and_bench.index,
+        ptf_and_bench["strategy_drawdown"],
+        color="orange",
+        alpha=0.3,
+        label="Strategy drawdown",
+    )
+    ax[1, 0].fill_between(
+        ptf_and_bench.index,
+        ptf_and_bench["drawdown"],
+        color="blue",
+        alpha=0.3,
+        label="Benchmark drawdown",
     )
 
-    p.quad(
-        top=hist,
-        bottom=0,
-        left=edges[:-1],
-        right=edges[1:],
-        fill_color=SALMON_COLOR,
-        line_color="#FFFFFF00",
-        alpha=0.45,
-        legend_label="Strategy returns distribution",
+    ax[1, 0].set_xlabel("Datetime", fontsize=18)
+    ax[1, 0].set_ylabel("Drawdown", fontsize=18)
+    ax[1, 0].set_title(
+        "Underwater (drawdown) plot",
+        fontsize=20,
     )
-    if benchmark_returns is not None:
-        hist, edges = np.histogram(
-            benchmark_returns,
-            density=True,
-            bins=from_returns_to_bins_count(benchmark_returns),
-        )
-        p.quad(
-            top=hist,
-            bottom=0,
-            left=edges[:-1],
-            right=edges[1:],
-            fill_color=VIOLET_COLOR,
-            line_color="#FFFFFF00",
-            alpha=0.45,
-            legend_label="Benchmark returns distribution",
-        )
-    p.legend.location = "center"
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.xaxis.formatter = RETURNS_FORMATTER
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_drawdown(
-    portfolio_drawdown: pd.Series,
-    benchmark_drawdown: Optional[pd.Series] = None,
-) -> Model:
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Underwater area (drawdown)",
-        x_axis_label="Datetime",
-        x_axis_type="datetime",
-        y_axis_label="Drawdown",
-        background_fill_color=BACKGROUND_COLOR,
+    ax[1, 0].grid()
+    ax[1, 0].legend(loc='lower right',fontsize=15)
+    ########################################### HISTORIGRAM
+    samples_bench = sorted(ptf_and_bench["returns"].to_numpy())
+    samples_strat = sorted(ptf_and_bench["strategy_returns"].to_numpy())
+    ax[0, 1].fill_between(
+        samples_strat,
+        gaussian_kde(samples_strat, bw_method="scott").pdf(samples_strat),
+        color="orange",
+        alpha=0.3,
+        label="KDE Strategy returns",
     )
-    if benchmark_drawdown is not None:
-        p.line(
-            x=benchmark_drawdown.index,
-            y=benchmark_drawdown,
-            color=VIOLET_COLOR,
-            line_width=1.5,
-        )
-        p.varea(
-            x=benchmark_drawdown.index,
-            y1=0,
-            y2=benchmark_drawdown,
-            color=VIOLET_COLOR,
-            alpha=0.55,
-            legend_label="Benchmark drawdown",
-        )
-
-    p.line(
-        x=portfolio_drawdown.index,
-        y=portfolio_drawdown,
-        color=SALMON_COLOR,
-        line_width=1.5,
-    )
-    p.varea(
-        x=portfolio_drawdown.index,
-        y1=0,
-        y2=portfolio_drawdown,
-        color=SALMON_COLOR,
-        alpha=0.55,
-        legend_label="Portfolio drawdown",
-    )
-    p.xaxis.formatter = DT_FORMATTER
-    p.yaxis.formatter = RETURNS_FORMATTER
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_decile_performance(
-    portfolio_returns: pd.Series, benchmark_returns: pd.Series
-) -> Model:
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Conditional performance per decile",
-        x_axis_label="Decile",
-        y_axis_label="returns",
-        background_fill_color=BACKGROUND_COLOR,
+    ax[0, 1].fill_between(
+        samples_bench,
+        gaussian_kde(samples_bench, bw_method="scott").pdf(samples_bench),
+        color="blue",
+        alpha=0.3,
+        label="KDE Benchmark returns",
     )
 
+    ax[0, 1].set_xlabel("Returns", fontsize=18)
+    ax[0, 1].set_ylabel("Density", fontsize=18)
+    ax[0, 1].set_title(
+        "Returns distribution",
+        fontsize=20,
+    )
+    ax[0, 1].grid()
+    ax[0, 1].legend(fontsize=15)
+    ########################################### WEIGHTS DRIFT
+    ax[3, 0].stackplot(
+        ptf_weights_evolution.index,
+        ptf_weights_evolution.to_numpy().T,
+    )
+    ax[3, 0].set_xlabel("Datetime", fontsize=18)
+    ax[3, 0].set_ylabel("Weights", fontsize=18)
+    ax[3, 0].set_title("Portfolio weights evolution over time", fontsize=20)
+    ax[3, 0].grid()
+    ax[3, 0].legend(ptf_weights_evolution.columns.to_list(), fontsize=15)
+
+    ########################################### WEIGHTS DRIFT
     df_rets = pd.DataFrame(
-        {"returns": benchmark_returns, "strategy_returns": portfolio_returns}
+        {
+            "returns": ptf_and_bench["returns"],
+            "strategy_returns": ptf_and_bench["strategy_returns"],
+        }
     )
 
     deciles = np.array(
@@ -337,271 +247,106 @@ def plot_decile_performance(
             )
         ]
     )
-    source = ColumnDataSource(
-        data={
-            "decile": np.arange(1, deciles[:, 0].shape[0] + 1),
-            "benchmark": deciles[:, 0],
-            "portfolio": deciles[:, 1],
-        }
+
+    ax[1, 1].bar(
+        np.arange(1, deciles[:, 0].shape[0] + 1) + 0.2,
+        deciles[:, -1],
+        0.4,
+        color="orange",
+        label="Portfolio",
     )
-
-    p.vbar(
-        x=dodge("decile", -0.2, range=p.x_range),
-        top="benchmark",
-        width=0.4,
-        alpha=0.7,
-        source=source,
-        line_color="#FFFFFF00",
-        fill_color=VIOLET_COLOR,
-        legend_label="Benchmark decile",
+    ax[1, 1].bar(
+        np.arange(1, deciles[:, 0].shape[0] + 1) - 0.2,
+        deciles[:, 0],
+        0.4,
+        color="blue",
+        label="Benchmark",
     )
-    p.vbar(
-        x=dodge("decile", 0.2, range=p.x_range),
-        top="portfolio",
-        width=0.4,
-        alpha=0.7,
-        source=source,
-        line_color="#FFFFFF00",
-        fill_color=SALMON_COLOR,
-        legend_label="Portfolio decile",
-    )
+    ax[1, 1].set_xlabel("Return deciles", fontsize=15)
+    ax[1, 1].set_ylabel("Average return", fontsize=15)
+    ax[1, 1].set_title(f"Performance by decile", fontsize=20)
+    ax[1, 1].grid()
+    ax[1, 1].legend(fontsize=15)
 
-    # p.vbar(x=x, top=deciles[:,-1], width=0.9, line_color="#FFFFFF00",fill_color=SALMON_COLOR, legend_label="Portfolio decile",)
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.yaxis.formatter = RETURNS_FORMATTER
-    p.grid.grid_line_alpha = 1
-    p.x_range.start = 0
-    p.x_range.end = 11
-    return p
-
-
-def plot_expected_return_profile(
-    portfolio_cumulative_returns: pd.Series,
-    benchmark_cumulative_returns: Optional[pd.Series] = None,
-) -> Model:
+    ############################################## Perf horizon
+    ptf_and_bench["strategy_cum_returns"]
     windows_bh = [
-        day for day in range(5, portfolio_cumulative_returns.shape[0] // 3, 30)
+        day for day in range(5, ptf_and_bench["strategy_cum_returns"].shape[0] // 3, 30)
     ]
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Expected return profile",
-        x_axis_label="Horizon (in candles)",
-        y_axis_label="Expected return",
-        background_fill_color=BACKGROUND_COLOR,
-    )
-    if benchmark_cumulative_returns is not None:
-        bench_expected_return_profile = [
-            benchmark_cumulative_returns.rolling(window)
-            .apply(lambda prices: (prices.iloc[-1] / prices.iloc[0]) - 1)
-            .mean()
-            for window in windows_bh
-        ]
-        p.circle(
-            windows_bh,
-            bench_expected_return_profile,
-            size=5,
-            color=VIOLET_COLOR,
-        )
-        p.line(
-            x=windows_bh,
-            y=bench_expected_return_profile,
-            color=VIOLET_COLOR,
-            line_width=2,
-            legend_label="Benchmark expected return profile",
-        )
-    ptf_expected_return_profile = [
-        portfolio_cumulative_returns.rolling(window)
+    bench_expected_return_profile = [
+        ptf_and_bench["cum_returns"]
+        .rolling(window)
         .apply(lambda prices: (prices.iloc[-1] / prices.iloc[0]) - 1)
         .mean()
         for window in windows_bh
     ]
-    p.circle(
+    ptf_expected_return_profile = [
+        ptf_and_bench["strategy_cum_returns"]
+        .rolling(window)
+        .apply(lambda prices: (prices.iloc[-1] / prices.iloc[0]) - 1)
+        .mean()
+        for window in windows_bh
+    ]
+    ax[2, 1].plot(
+        windows_bh, ptf_expected_return_profile, color="orange", label="Portfolio"
+    )
+    ax[2, 1].scatter(
         windows_bh,
         ptf_expected_return_profile,
-        size=5,
-        color=SALMON_COLOR,
+        color="orange",
     )
-    p.line(
-        x=windows_bh,
-        y=ptf_expected_return_profile,
-        color=SALMON_COLOR,
-        line_width=2,
-        legend_label="Portfolio expected return profile",
+    ax[2, 1].plot(
+        windows_bh, bench_expected_return_profile, color="blue", label="Benchmark"
     )
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.yaxis.formatter = RETURNS_FORMATTER
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_rolling_sharpe_ratio(
-    portfolio_returns: pd.Series,
-    benchmark_returns: Optional[pd.Series] = None,
-) -> Model:
-    n_rolling = portfolio_returns.shape[0] // 10
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title=f"{n_rolling}-candles rolling Sharpe ratio",
-        x_axis_label="Datetime",
-        x_axis_type="datetime",
-        y_axis_label="Sharpe ratio",
-        background_fill_color=BACKGROUND_COLOR,
+    ax[2, 1].scatter(windows_bh, bench_expected_return_profile, color="blue")
+    ax[2, 1].set_xlabel("Datetime", fontsize=15)
+    ax[2, 1].set_ylabel("Returns", fontsize=15)
+    ax[2, 1].set_title(
+        f"Expected return with respect to investment horizon", fontsize=20
     )
-    if benchmark_returns is not None:
-        p.line(
-            x=benchmark_returns.index,
-            y=benchmark_returns.rolling(n_rolling)
-            .apply(
-                lambda rets: (365 * rets.mean()) / (rets.std() * (365**0.5)),
-            )
-            .fillna(0),
-            color=VIOLET_COLOR,
-            line_width=2,
-            legend_label="Benchmark rolling sharpe ratio",
-        )
-    p.line(
-        x=portfolio_returns.index,
-        y=portfolio_returns.rolling(n_rolling)
+    ax[2, 1].grid()
+    ax[2, 1].legend(fontsize=15)
+    ############################################## Rolling sharpe ratio
+    n_rolling = ptf_and_bench["strategy_cum_returns"].shape[0] // 10
+
+    ax[2, 0].plot(
+        ptf_and_bench.index,
+        ptf_and_bench["strategy_cum_returns"]
+        .rolling(n_rolling)
         .apply(
-            lambda rets: (365 * rets.mean()) / (rets.std() * (365**0.5)),
+            lambda rets: (252 * rets.mean()) / (rets.std() * (252**0.5)),
         )
         .fillna(0),
-        color=SALMON_COLOR,
-        line_width=2,
-        legend_label="Portfolio rolling sharpe ratio",
+        color="orange",
+        label="Portfolio",
     )
-    p.xaxis.formatter = DT_FORMATTER
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_omega_curve(
-    portfolio_returns: pd.Series,
-    benchmark_returns: Optional[pd.Series] = None,
-) -> Model:
+    ax[2, 0].plot(
+        ptf_and_bench.index,
+        ptf_and_bench["cum_returns"]
+        .rolling(n_rolling)
+        .apply(
+            lambda rets: (252 * rets.mean()) / (rets.std() * (252**0.5)),
+        )
+        .fillna(0),
+        color="blue",
+        label="Benchmark",
+    )
+    ax[2, 0].set_xlabel("Datetime", fontsize=15)
+    ax[2, 0].set_ylabel("Returns", fontsize=15)
+    ax[2, 0].set_title(f"{n_rolling}-days rolling Sharpe ratio", fontsize=20)
+    ax[2, 0].grid()
+    ax[2, 0].legend(fontsize=15)
+    ############################################## Omega curve
     thresholds = np.linspace(0.01, 0.75, 100)
     omega_bench = []
     omega_ptf = []
     for threshold in thresholds:
-        omega_ptf.append(omega_ratio(portfolio_returns, threshold))
-        if benchmark_returns is not None:
-            omega_bench.append(omega_ratio(benchmark_returns, threshold))
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title=f"Omega curve",
-        x_axis_label="Return threshold",
-        y_axis_label="Omega ratio",
-        background_fill_color=BACKGROUND_COLOR,
-    )
-    if benchmark_returns is not None:
-        p.line(
-            x=thresholds,
-            y=omega_bench,
-            color=VIOLET_COLOR,
-            line_width=2,
-            legend_label="Benchmark omega curve",
-        )
-    p.line(
-        x=thresholds,
-        y=omega_ptf,
-        color=SALMON_COLOR,
-        line_width=2,
-        legend_label="Portfolio omega curve",
-    )
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.xaxis.formatter = RETURNS_FORMATTER
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_price_evolution(
-    price: pd.Series,
-) -> Model:
-    p = figure(
-        tools="pan,wheel_zoom,box_zoom,reset,save",
-        width=UNIT_PLOT_WIDTH,
-        height=UNIT_PLOT_HEIGHT,
-        title="Price evolution",
-        x_axis_label="Datetime",
-        x_axis_type="datetime",
-        y_axis_label="Price evolution",
-        background_fill_color=BACKGROUND_COLOR,
-    )
-
-    p.line(
-        x=price.index,
-        y=price,
-        color=VIOLET_COLOR,
-        line_width=2,
-        legend_label="Price",
-    )
-    p.xaxis.formatter = DT_FORMATTER
-
-    p.legend.location = "center"
-
-    p.add_layout(p.legend[0], "below")
-    p.grid.grid_line_color = GRID_COLOR
-    p.grid.grid_line_alpha = 1
-    return p
-
-
-def plot_from_trade_df(price_df: pd.DataFrame) -> None:
-    """Plot historical price, equity progression, drawdown evolution and return distribution.
-
-    Args:
-    ----
-        price_df (pd.DataFrame): The historical price dataframe.
-
-    """
-    output_notebook()
-    grid = gridplot(
-        [
-            [
-                plot_price_evolution(price_df["cum_returns"]),
-                plot_returns_distribution(
-                    price_df["strategy_returns"], price_df["returns"]
-                ),
-            ],
-            [
-                plot_cumulative_performances(
-                    price_df["strategy_cum_returns"], price_df["cum_returns"]
-                ),
-                plot_expected_return_profile(
-                    price_df["strategy_cum_returns"], price_df["cum_returns"]
-                ),
-            ],
-            [
-                plot_drawdown(price_df["strategy_drawdown"], price_df["drawdown"]),
-                plot_decile_performance(
-                    price_df["strategy_returns"], price_df["returns"]
-                ),
-            ],
-            [
-                plot_rolling_sharpe_ratio(
-                    price_df["strategy_returns"], price_df["returns"]
-                ),
-                plot_omega_curve(price_df["strategy_returns"], price_df["returns"]),
-            ],
-        ]  # type: ignore
-    )
-
-    show(grid)
+        omega_ptf.append(omega_ratio(ptf_and_bench["strategy_returns"], threshold))
+        omega_bench.append(omega_ratio(ptf_and_bench["returns"], threshold))
+    ax[3, 1].plot(thresholds, omega_ptf, color="orange", label="Portfolio")
+    ax[3, 1].plot(thresholds, omega_bench, color="blue", label="Benchmark")
+    ax[3, 1].set_xlabel("Thresholds", fontsize=15)
+    ax[3, 1].set_ylabel("Omega ratio", fontsize=15)
+    ax[3, 1].set_title(f"Omega curve", fontsize=20)
+    ax[3, 1].grid()
+    ax[3, 1].legend(fontsize=15)

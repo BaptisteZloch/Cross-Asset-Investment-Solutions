@@ -9,149 +9,20 @@ from statsmodels.tools.tools import add_constant
 from statsmodels.regression.linear_model import OLS
 from sklearn.metrics import r2_score
 
-from quant_invest_lab.constants import (
-    TIMEFRAME_ANNUALIZED,
-)
-from quant_invest_lab.types import (
-    Timeframe,
-)
-
-from quant_invest_lab.portfolio import construct_report_dataframe
-
-from utility.constants import PERCENT_METRICS
-
-# Only the metrics calculated in the article are considered:
-ARTICLE_METRICS = [
-    "Expected return",
-    "Expected volatility",
-    "VaR",
-    "CVaR",
-    "Sharpe ratio",
-    "Tail ratio",
-    "Portfolio beta",
-    "Tracking error",
-    "Information ratio",
-]
-
-
-def print_performance_statistics(
-    strategy_returns: pd.Series,
-    benchmark_returns: pd.Series,
-    perform_t_stats: bool = True,
-    n_samples: int = 1000,
-    sample_size: int = 200,
-    alpha_risk: float = 0.05,
-) -> pd.DataFrame:
-    assert (
-        strategy_returns.shape[0] == benchmark_returns.shape[0]
-    ), "Error: different length"
-    assert strategy_returns.shape[0] > sample_size, "Error: sample size too large"
-
-    df = pd.concat([strategy_returns, benchmark_returns], axis=1)
-    df.columns = ["strategy", "benchmark"]
-    # print(df)
-    final_stats = construct_report_dataframe(
-        df["strategy"], df["benchmark"], timeframe="1day"
-    )
-    if perform_t_stats:
-        bootstrap_strat_returns_stats = pd.DataFrame(
-            map(
-                lambda sample_index: construct_report_dataframe(
-                    portfolio_returns=pd.Series(
-                        df.loc[sample_index]["strategy"].to_numpy(),
-                        index=benchmark_returns.index[:sample_size],
-                    ),
-                    benchmark_returns=pd.Series(
-                        df.loc[sample_index]["benchmark"].to_numpy(),
-                        index=benchmark_returns.index[:sample_size],
-                    ),
-                    timeframe="1day",
-                )["Portfolio"],
-                np.random.choice(
-                    df.index.to_numpy(), size=(n_samples, sample_size), replace=True
-                ),
-            )
-        )
-
-    bootstrap_strat_returns_stats = bootstrap_strat_returns_stats[ARTICLE_METRICS]
-    final_list_stats = []
-    for metric in ARTICLE_METRICS:
-        if perform_t_stats is True:
-            if metric in bootstrap_strat_returns_stats.columns:
-                # if metric in bootstrap_strat_returns_stats.columns:
-                t_stat, p_value = stats.ttest_1samp(
-                    bootstrap_strat_returns_stats[metric].to_numpy(),
-                    popmean=final_stats["Benchmark"][metric],
-                )
-                print(f"\n{metric:-^50}")
-                if metric in PERCENT_METRICS:
-                    print(
-                        f"Benchmark: {100*final_stats['Benchmark'][metric]:.2f}% vs Strategy: {100*final_stats['Portfolio'][metric]:.2f}%"
-                    )
-                    final_list_stats.append(
-                        {
-                            "metric": metric,
-                            "value": f'{100*final_stats["Portfolio"][metric]:.2f}% ({t_stat:.2f})',
-                        }
-                    )
-                else:
-                    print(
-                        f"Benchmark: {final_stats['Benchmark'][metric]:.2f} vs Strategy: {final_stats['Portfolio'][metric]:.2f}"
-                    )
-                    final_list_stats.append(
-                        {
-                            "metric": metric,
-                            "value": f'{final_stats["Portfolio"][metric]:.2f} ({t_stat:.2f})',
-                        }
-                    )
-                print(f"\nt-stat: {t_stat:.2f}, p-value: {p_value:.2f}")
-                print(
-                    f"{'Statistically different from the bench' if p_value < alpha_risk else 'Not statistically different from the bench'}"
-                )
-            else:
-                print(f"\n{metric:-^50}")
-                if metric in PERCENT_METRICS:
-                    print(
-                        f"Benchmark: N/A vs Strategy: {100*final_stats['Portfolio'][metric]:.2f}%"
-                    )
-                else:
-                    print(
-                        f"Benchmark: N/A vs Strategy: {final_stats['Portfolio'][metric]:.2f}"
-                    )
-        else:
-            print(f"\n{metric:-^50}")
-            if metric in PERCENT_METRICS:
-                print(
-                    f"Benchmark: {100*final_stats['Benchmark'][metric]:.2f}% vs Strategy: {100*final_stats['Portfolio'][metric]:.2f}%"
-                )
-            else:
-                print(
-                    f"Benchmark: {final_stats['Benchmark'][metric]:.2f} vs Strategy: {final_stats['Portfolio'][metric]:.2f}"
-                )
-
-    return pd.DataFrame(final_list_stats)
-
-
-
 def construct_report_dataframe(
     portfolio_returns: pd.Series,
-    benchmark_returns: Optional[pd.Series] = None,
-    timeframe: Timeframe = "1hour",
+    benchmark_returns: pd.Series,
 ) -> pd.DataFrame:
     report_df = pd.DataFrame(
-        columns=["Portfolio"]
-        if benchmark_returns is not None
-        else ["Portfolio", "Benchmark"]
+        columns=["Portfolio", "Benchmark"]
     )
 
-    report_df.loc["Expected return", "Portfolio"] = (
-        portfolio_returns.mean() * TIMEFRAME_ANNUALIZED[timeframe]
-    )
+    report_df.loc["Expected return", "Portfolio"] = portfolio_returns.mean() * 252
     report_df.loc["CAGR", "Portfolio"] = compounded_annual_growth_rate(
-        portfolio_returns, TIMEFRAME_ANNUALIZED[timeframe]
+        portfolio_returns, 252
     )
     report_df.loc["Expected volatility", "Portfolio"] = portfolio_returns.std() * (
-        TIMEFRAME_ANNUALIZED[timeframe] ** 0.5
+        252**0.5
     )
     report_df.loc["Skewness", "Portfolio"] = skew(portfolio_returns.values)
     report_df.loc["Kurtosis", "Portfolio"] = kurtosis(portfolio_returns.values)
@@ -163,111 +34,107 @@ def construct_report_dataframe(
     report_df.loc["Payoff ratio", "Portfolio"] = payoff_ratio(portfolio_returns)
     report_df.loc["Expectancy", "Portfolio"] = expectancy(portfolio_returns)
     report_df.loc["Sharpe ratio", "Portfolio"] = sharpe_ratio(
-        portfolio_returns, TIMEFRAME_ANNUALIZED[timeframe], risk_free_rate=0.0
+        portfolio_returns, 252, risk_free_rate=0.0
     )
     report_df.loc["Sortino ratio", "Portfolio"] = sortino_ratio(
-        portfolio_returns, TIMEFRAME_ANNUALIZED[timeframe], risk_free_rate=0
+        portfolio_returns, 252, risk_free_rate=0
     )
     report_df.loc["Burke ratio", "Portfolio"] = burke_ratio(
         portfolio_returns,
         n_drawdowns=5,
         risk_free_rate=0,
-        N=TIMEFRAME_ANNUALIZED[timeframe],
+        N=252,
     )
-    report_df.loc["Calmar ratio", "Portfolio"] = calmar_ratio(
-        portfolio_returns, TIMEFRAME_ANNUALIZED[timeframe]
-    )
+    report_df.loc["Calmar ratio", "Portfolio"] = calmar_ratio(portfolio_returns, 252)
     report_df.loc["Tail ratio", "Portfolio"] = tail_ratio(portfolio_returns)
 
-    if benchmark_returns is not None:
-        assert (
-            portfolio_returns.shape[0] == benchmark_returns.shape[0]
-        ), f"Error: portfolio and benchmark returns must have the same length"
 
-        report_df.loc["Specific risk", "Portfolio"] = specific_risk(
-            portfolio_returns, benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
-        report_df.loc["Systematic risk", "Portfolio"] = systematic_risk(
-            portfolio_returns, benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
-        report_df.loc["Portfolio beta", "Portfolio"] = portfolio_beta(
-            portfolio_returns, benchmark_returns
-        )
-        report_df.loc["Portfolio alpha", "Portfolio"] = portfolio_alpha(
-            portfolio_returns, benchmark_returns
-        )
-        report_df.loc["Jensen alpha", "Portfolio"] = jensen_alpha(
-            portfolio_returns, benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
+    assert (
+        portfolio_returns.shape[0] == benchmark_returns.shape[0]
+    ), f"Error: portfolio and benchmark returns must have the same length"
 
-        report_df.loc["R2", "Portfolio"] = r_squared(
-            portfolio_returns, benchmark_returns
-        )
-        report_df.loc["Tracking error", "Portfolio"] = tracking_error(
-            portfolio_returns, benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
+    report_df.loc["Specific risk", "Portfolio"] = specific_risk(
+        portfolio_returns, benchmark_returns, 252
+    )
+    report_df.loc["Systematic risk", "Portfolio"] = systematic_risk(
+        portfolio_returns, benchmark_returns, 252
+    )
+    report_df.loc["Portfolio beta", "Portfolio"] = portfolio_beta(
+        portfolio_returns, benchmark_returns
+    )
+    report_df.loc["Portfolio alpha", "Portfolio"] = portfolio_alpha(
+        portfolio_returns, benchmark_returns
+    )
+    report_df.loc["Jensen alpha", "Portfolio"] = jensen_alpha(
+        portfolio_returns, benchmark_returns, 252
+    )
 
-        report_df.loc["Treynor ratio", "Portfolio"] = treynor_ratio(
-            portfolio_returns,
-            benchmark_returns,
-            TIMEFRAME_ANNUALIZED[timeframe],
-            risk_free_rate=0,
-        )
-        report_df.loc["Information ratio", "Portfolio"] = information_ratio(
-            portfolio_returns, benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
+    report_df.loc["R2", "Portfolio"] = r_squared(
+        portfolio_returns, benchmark_returns
+    )
+    report_df.loc["Tracking error", "Portfolio"] = tracking_error(
+        portfolio_returns, benchmark_returns, 252
+    )
 
-        report_df.loc["Expected return", "Benchmark"] = (
-            benchmark_returns.mean() * TIMEFRAME_ANNUALIZED[timeframe]
-        )
-        report_df.loc["Expected volatility", "Benchmark"] = benchmark_returns.std() * (
-            TIMEFRAME_ANNUALIZED[timeframe] ** 0.5
-        )
-        report_df.loc["Specific risk", "Benchmark"] = 0
-        report_df.loc["Systematic risk", "Benchmark"] = report_df.loc[
-            "Expected volatility", "Benchmark"
-        ]
-        report_df.loc["Portfolio beta", "Benchmark"] = 1
-        report_df.loc["Portfolio alpha", "Benchmark"] = 0
-        report_df.loc["Jensen alpha", "Benchmark"] = 0
-        report_df.loc["Skewness", "Benchmark"] = skew(benchmark_returns.values)
-        report_df.loc["Kurtosis", "Benchmark"] = kurtosis(benchmark_returns.values)
-        report_df.loc["VaR", "Benchmark"] = value_at_risk(benchmark_returns)
-        report_df.loc["CVaR", "Benchmark"] = conditional_value_at_risk(
-            benchmark_returns
-        )
-        report_df.loc["Profit factor", "Benchmark"] = profit_factor(benchmark_returns)
-        report_df.loc["Payoff ratio", "Benchmark"] = payoff_ratio(benchmark_returns)
-        report_df.loc["Expectancy", "Benchmark"] = expectancy(benchmark_returns)
-        report_df.loc["CAGR", "Benchmark"] = compounded_annual_growth_rate(
-            benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
-        report_df.loc["Max drawdown", "Benchmark"] = max_drawdown(benchmark_returns)
-        report_df.loc["Kelly criterion", "Benchmark"] = kelly_criterion(
-            benchmark_returns
-        )
-        report_df.loc["R2", "Benchmark"] = 1
-        report_df.loc["Tracking error", "Benchmark"] = 0
+    report_df.loc["Treynor ratio", "Portfolio"] = treynor_ratio(
+        portfolio_returns,
+        benchmark_returns,
+        252,
+        risk_free_rate=0,
+    )
+    report_df.loc["Information ratio", "Portfolio"] = information_ratio(
+        portfolio_returns, benchmark_returns, 252
+    )
 
-        report_df.loc["Sharpe ratio", "Benchmark"] = sharpe_ratio(
-            benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe], risk_free_rate=0.0
-        )
-        report_df.loc["Sortino ratio", "Benchmark"] = sortino_ratio(
-            benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe], risk_free_rate=0
-        )
-        report_df.loc["Burke ratio", "Benchmark"] = burke_ratio(
-            benchmark_returns,
-            n_drawdowns=5,
-            risk_free_rate=0,
-            N=TIMEFRAME_ANNUALIZED[timeframe],
-        )
-        report_df.loc["Calmar ratio", "Benchmark"] = calmar_ratio(
-            benchmark_returns, TIMEFRAME_ANNUALIZED[timeframe]
-        )
-        report_df.loc["Tail ratio", "Benchmark"] = tail_ratio(benchmark_returns)
+    report_df.loc["Expected return", "Benchmark"] = benchmark_returns.mean() * 252
+    report_df.loc["Expected volatility", "Benchmark"] = benchmark_returns.std() * (
+        252**0.5
+    )
+    report_df.loc["Specific risk", "Benchmark"] = 0
+    report_df.loc["Systematic risk", "Benchmark"] = report_df.loc[
+        "Expected volatility", "Benchmark"
+    ]
+    report_df.loc["Portfolio beta", "Benchmark"] = 1
+    report_df.loc["Portfolio alpha", "Benchmark"] = 0
+    report_df.loc["Jensen alpha", "Benchmark"] = 0
+    report_df.loc["Skewness", "Benchmark"] = skew(benchmark_returns.values)
+    report_df.loc["Kurtosis", "Benchmark"] = kurtosis(benchmark_returns.values)
+    report_df.loc["VaR", "Benchmark"] = value_at_risk(benchmark_returns)
+    report_df.loc["CVaR", "Benchmark"] = conditional_value_at_risk(
+        benchmark_returns
+    )
+    report_df.loc["Profit factor", "Benchmark"] = profit_factor(benchmark_returns)
+    report_df.loc["Payoff ratio", "Benchmark"] = payoff_ratio(benchmark_returns)
+    report_df.loc["Expectancy", "Benchmark"] = expectancy(benchmark_returns)
+    report_df.loc["CAGR", "Benchmark"] = compounded_annual_growth_rate(
+        benchmark_returns, 252
+    )
+    report_df.loc["Max drawdown", "Benchmark"] = max_drawdown(benchmark_returns)
+    report_df.loc["Kelly criterion", "Benchmark"] = kelly_criterion(
+        benchmark_returns
+    )
+    report_df.loc["R2", "Benchmark"] = 1
+    report_df.loc["Tracking error", "Benchmark"] = 0
 
-        report_df.loc["Treynor ratio", "Benchmark"] = 0
-        report_df.loc["Information ratio", "Benchmark"] = 0
+    report_df.loc["Sharpe ratio", "Benchmark"] = sharpe_ratio(
+        benchmark_returns, 252, risk_free_rate=0.0
+    )
+    report_df.loc["Sortino ratio", "Benchmark"] = sortino_ratio(
+        benchmark_returns, 252, risk_free_rate=0
+    )
+    report_df.loc["Burke ratio", "Benchmark"] = burke_ratio(
+        benchmark_returns,
+        n_drawdowns=5,
+        risk_free_rate=0,
+        N=252,
+    )
+    report_df.loc["Calmar ratio", "Benchmark"] = calmar_ratio(
+        benchmark_returns, 252
+    )
+    report_df.loc["Tail ratio", "Benchmark"] = tail_ratio(benchmark_returns)
+
+    report_df.loc["Treynor ratio", "Benchmark"] = 0
+    report_df.loc["Information ratio", "Benchmark"] = 0
     return report_df
 
 
