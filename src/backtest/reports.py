@@ -299,7 +299,7 @@ def plot_from_trade_df(
         windows_bh, bench_expected_return_profile, color="blue", label="Benchmark"
     )
     ax[2, 1].scatter(windows_bh, bench_expected_return_profile, color="blue")
-    ax[2, 1].set_xlabel("Datetime", fontsize=15)
+    ax[2, 1].set_xlabel("Investment horizon in days", fontsize=15)
     ax[2, 1].set_ylabel("Returns", fontsize=15)
     ax[2, 1].set_title(
         f"Expected return with respect to investment horizon", fontsize=20

@@ -91,7 +91,15 @@ class Backtester:
         assert set(transaction_cost_by_securities.keys()) == set(
             self.__universe_returns.columns
         ), "Error, you need to provide transaction cost for every security in the universe"
-
+        # Handle null leverages
+        if bearish_leverage_by_securities is None:
+            bearish_leverage_by_securities = {
+                k: 1 for k in self.__universe_returns.columns
+            }
+        if bullish_leverage_by_securities is None:
+            bullish_leverage_by_securities = {
+                k: 1 for k in self.__universe_returns.columns
+            }
         # List to store the returns and weights at each iteration (i.e. Days)
         regimes_histo: List[Dict[str, Union[float, int, pd.Timestamp, datetime]]] = []
         returns_histo = []
@@ -110,7 +118,7 @@ class Backtester:
         )
 
         first_rebalance = False  # Create a portfolio at the first date of the backtest
-
+        leverage_to_use = bullish_leverage_by_securities
         for index, row in tqdm(
             self.__universe_returns.iloc[starting_offset:].iterrows(),
             desc="Backtesting portfolio...",
@@ -126,7 +134,6 @@ class Backtester:
                     scaler_type="robust",
                 )
                 next_beta = predict_next_beta_and_alpha(
-                    # We resample the time series to week in order to estimate the future beta
                     market_returns=self.__market_returns.loc[:index]
                     # .resample("1W-FRI")
                     # .last()
@@ -139,10 +146,10 @@ class Backtester:
                 regimes_histo.append(
                     {"Date": index, "Regime": REGIMES[-1], "next_beta": next_beta}
                 )
-                # if REGIMES[-1] == 1:  # Bearish market
-                #     assets = Universe.get_defensive_securities()
-                # else:
-                #     assets = Universe.get_blend_securities()
+                if REGIMES[-1] == 1:  # Bearish market
+                    leverage_to_use = bearish_leverage_by_securities
+                else:
+                    leverage_to_use = bullish_leverage_by_securities
                 assets = Universe.get_universe_securities()
                 first_rebalance = True
                 if verbose:
@@ -156,7 +163,7 @@ class Backtester:
                 returns_with_applied_fees = []
                 for ind, value in row.loc[list(weights.keys())].items():
                     returns_with_applied_fees.append(
-                        value - transaction_cost_by_securities.get(str(ind))
+                        (value - transaction_cost_by_securities.get(str(ind)))
                     )
                 returns = np.array(returns_with_applied_fees)
             elif index in DETECTION_DATES:
@@ -168,14 +175,13 @@ class Backtester:
                     scaler_type="robust",
                 )
                 next_beta = predict_next_beta_and_alpha(
-                    # We resample the time series to week in order to estimate the future beta
                     market_returns=self.__market_returns.loc[:index]
-                    .resample("1W-FRI")
-                    .last()
+                    # .resample("1W-FRI")
+                    # .last()
                     .to_numpy(),
                     asset_returns=self.__benchmark_returns.loc[:index]
-                    .resample("1W-FRI")
-                    .last()
+                    # .resample("1W-FRI")
+                    # .last()
                     .to_numpy(),
                 )[-1]
                 regimes_histo.append(
@@ -185,10 +191,10 @@ class Backtester:
                     # Row returns
                     returns = row.loc[list(weights.keys())].to_numpy()
                 else:
-                    # if REGIMES[-1] == 1:  # Bearish market
-                    #     assets = Universe.get_defensive_securities()
-                    # else:
-                    #     assets = Universe.get_blend_securities()
+                    if REGIMES[-1] == 1:  # Bearish market
+                        leverage_to_use = bearish_leverage_by_securities
+                    else:
+                        leverage_to_use = bullish_leverage_by_securities
                     assets = Universe.get_universe_securities()
                     first_rebalance = True
                     if verbose:
@@ -202,12 +208,15 @@ class Backtester:
                     returns_with_applied_fees = []
                     for ind, value in row.loc[list(weights.keys())].items():
                         returns_with_applied_fees.append(
-                            value - transaction_cost_by_securities.get(str(ind))
+                            (value - transaction_cost_by_securities.get(str(ind)))
                         )
                     returns = np.array(returns_with_applied_fees)
             else:
                 # Row returns
                 returns = row.loc[list(weights.keys())].to_numpy()
+            weights = {
+                sec: w * leverage_to_use.get(sec, 1) for sec, w in weights.items()
+            }
             # Append the current weights to the list
             weights_histo.append(weights)
             # Create numpy weights for matrix operations
