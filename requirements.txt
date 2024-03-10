@@ -15,3 +15,4 @@ Pyarrow
 scikit-learn
 hmmlearn
 filterpy
+quant_invest_lab

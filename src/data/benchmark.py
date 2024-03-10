@@ -82,7 +82,7 @@ class Benchmark:
         benchmark = pd.read_csv(
             self._PATH,
             sep=",",
-            date_format="%Y-%m-%d",
+            # date_format="%Y-%m-%d",
             parse_dates=True,
             index_col="Date",
         )

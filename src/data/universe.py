@@ -37,16 +37,6 @@ class Universe:
     def get_universe_securities() -> List[str]:
         return Universe.__universe.columns.to_list()
 
-    @staticmethod
-    @__check_loaded
-    def get_blend_securities() -> List[str]:
-        return ["ETF_GROWTH", "ETF_SPX", "ETF_CAC"]
-
-    @staticmethod
-    @__check_loaded
-    def get_defensive_securities() -> List[str]:
-        return ["MONTAIRE", "ETF_VALUE", "ETF_CAC"]
-
     def __new__(cls, *args, **kwargs) -> Self:
         """Singleton pattern implementation.
 

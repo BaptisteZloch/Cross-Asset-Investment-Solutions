@@ -32,6 +32,24 @@ def get_rebalance_dates(
     )
 
 
+def get_regime_detection_dates(
+    start_date: Union[datetime, str],
+    end_date: Union[datetime, str],
+) -> Set[Union[pd.Timestamp, datetime]]:
+    """Generate a Series of dates to compute regime detection on the market.
+
+    Args:
+        start_date (Union[datetime, str]): The start date.
+        end_date (Union[datetime, str]):  The start date.
+
+    Returns:
+        Set[Union[pd.Timestamp, datetime]]: The dates at the regime detection model has to be ran.
+    """
+    return get_rebalance_dates(
+        start_date, end_date, frequency=RebalanceFrequencyEnum.WEEKLY
+    )
+
+
 def compute_weights_drift(
     securities: List[str],
     old_weights: npt.NDArray[np.float32],

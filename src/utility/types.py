@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class RebalanceFrequencyEnum(StrEnum):
     DAILY = "1B"
+    WEEKLY = "1W-FRI"
     MONTH_END = "1BME"
     MONTH_START = "BMS"
     QUARTER_END = "BQE"
