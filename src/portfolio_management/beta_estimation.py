@@ -78,7 +78,7 @@ def predict_next_beta_and_alpha(
         kf.update(z=asset_return, H=np.array([[1, market_return], [0, 0]]))
         estimated_beta.append(kf.x[-1])
         estimated_alpha.append(kf.x[0])
-    kf.predict()
+    # kf.predict()
     return kf.x
 
 
