@@ -163,7 +163,7 @@ class Backtester:
                 returns_with_applied_fees = []
                 for ind, value in row.loc[list(weights.keys())].items():
                     returns_with_applied_fees.append(
-                        (value - transaction_cost_by_securities.get(str(ind)))
+                        (value - transaction_cost_by_securities.get(str(ind),0.0))
                     )
                 returns = np.array(returns_with_applied_fees)
             elif index in DETECTION_DATES:
@@ -208,7 +208,7 @@ class Backtester:
                     returns_with_applied_fees = []
                     for ind, value in row.loc[list(weights.keys())].items():
                         returns_with_applied_fees.append(
-                            (value - transaction_cost_by_securities.get(str(ind)))
+                            (value - transaction_cost_by_securities.get(str(ind),0.0))
                         )
                     returns = np.array(returns_with_applied_fees)
             else:
