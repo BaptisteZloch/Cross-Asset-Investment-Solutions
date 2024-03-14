@@ -8,7 +8,7 @@ from utility.utils import compute_weights_drift, get_rebalance_dates
 
 
 class Benchmark:
-    _PATH = "../data/benchmark.csv"
+    _PATH = "../data/data_cross_asset.xlsx"
     __BASE_WEIGHTS = {"OISESTR": 0.3, "SPX": 0.2, "SX5T": 0.5}
     __benchmark_returns: Optional[pd.Series] = None
     __weights_df: Optional[pd.DataFrame] = None
@@ -41,11 +41,21 @@ class Benchmark:
                     print(f"Rebalancing the portfolio on {index}...")
                 weights = self.__BASE_WEIGHTS
             weights_histo.append(weights)
-            returns_histo.append((row.to_numpy() @ np.array(list(weights.values()))))
+
+            returns_histo.append(
+                (
+                    self.__benchmark_components_returns[list(weights.keys())]
+                    .loc[index]  # type: ignore
+                    .to_numpy()
+                    @ np.array(list(weights.values()))
+                )
+            )
             weights = compute_weights_drift(
-                self.__benchmark_components_returns.columns,
+                list(weights.keys()),
                 np.array(list(weights.values())),
-                row.to_numpy(),
+                self.__benchmark_components_returns[list(weights.keys())]
+                .loc[index]  # type: ignore
+                .to_numpy(),
             )
         # The returns of the benchmark
         self.__benchmark_returns = pd.Series(
@@ -79,22 +89,30 @@ class Benchmark:
         return self.__benchmark_perf
 
     def get_benchmark_price_data(self) -> pd.DataFrame:
-        benchmark = pd.read_csv(
-            self._PATH,
-            sep=",",
-            # date_format="%Y-%m-%d",
-            parse_dates=True,
-            index_col="Date",
+        benchmark = (
+            pd.read_excel(
+                self._PATH,
+                sheet_name="ETF_bench",
+                skiprows=[1],
+                usecols=["Unnamed: 0", "SX5T", "SPTR500N", "ESTR_ETF"],
+                index_col=0,
+            )
+            .rename(
+                columns={
+                    "ESTR_ETF": "OISESTR",
+                    "SPTR500N": "SPX",
+                }
+            )
+            .dropna()
+            .asfreq("B", method="ffill")
         )
-        benchmark["OISESTR"] = benchmark["OISESTR"] / 100 / 252
-        benchmark = benchmark.asfreq("B", method="ffill")
+
+        # benchmark["OISESTR"] = benchmark["OISESTR"] / 100 / 252k
+
         return benchmark
 
     def get_benchmark_returns_data(self) -> pd.DataFrame:
-        benchmark = self.get_benchmark_price_data()
-        for col in ["SPX", "SX5T"]:
-            benchmark[col] = benchmark[col].pct_change().fillna(0)
-        benchmark = benchmark.asfreq("B", method="ffill")
+        benchmark = self.get_benchmark_price_data().pct_change().fillna(0)
         return benchmark[list(self.__BASE_WEIGHTS.keys())]
 
     def __new__(cls, *args, **kwargs) -> Self:
