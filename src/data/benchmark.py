@@ -106,9 +106,6 @@ class Benchmark:
             .dropna()
             .asfreq("B", method="ffill")
         )
-
-        # benchmark["OISESTR"] = benchmark["OISESTR"] / 100 / 252k
-
         return benchmark
 
     def get_benchmark_returns_data(self) -> pd.DataFrame:

@@ -17,20 +17,18 @@ def print_portfolio_strategy_report(
     portfolio_returns: pd.Series,
     benchmark_returns: Optional[pd.Series] = None,
 ) -> pd.DataFrame:
-    report_df = construct_report_dataframe(
-        portfolio_returns, benchmark_returns
-    )
+    report_df = construct_report_dataframe(portfolio_returns, benchmark_returns)
     if benchmark_returns is not None:
         print(f"\n{'  Returns statistical information  ':-^50}")
 
         print(
-            f"Expected return annualized: {100*report_df.loc['Expected return', 'Portfolio']:.2f} % vs {100*report_df.loc['Expected return', 'Benchmark']:.2f} % (buy and hold)"
+            f"Expected return annualized: {100*report_df.loc['Expected return', 'Portfolio']:.2f} % vs {100*report_df.loc['Expected return', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
-            f"CAGR: {100*report_df.loc['CAGR', 'Portfolio']:.2f} % vs {100*report_df.loc['CAGR', 'Benchmark']:.2f} % (buy and hold)"
+            f"CAGR: {100*report_df.loc['CAGR', 'Portfolio']:.2f} % vs {100*report_df.loc['CAGR', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
-            f"Expected volatility annualized: {100*report_df.loc['Expected volatility', 'Portfolio']:.2f} % vs {100*report_df.loc['Expected volatility', 'Benchmark']:.2f} % (buy and hold)"
+            f"Expected volatility annualized: {100*report_df.loc['Expected volatility', 'Portfolio']:.2f} % vs {100*report_df.loc['Expected volatility', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
             f"Specific volatility (diversifiable) annualized: {100*report_df.loc['Specific risk', 'Portfolio'] :.2f} %"
@@ -39,28 +37,28 @@ def print_portfolio_strategy_report(
             f"Systematic volatility annualized: {100*report_df.loc['Systematic risk', 'Portfolio'] :.2f} %"
         )
         print(
-            f"Skewness: {report_df.loc['Skewness', 'Portfolio']:.2f} vs {report_df.loc['Skewness', 'Benchmark']:.2f} (buy and hold), <0 = left tail, >0 = right tail"
+            f"Skewness: {report_df.loc['Skewness', 'Portfolio']:.2f} vs {report_df.loc['Skewness', 'Benchmark']:.2f} (benchmark), <0 = left tail, >0 = right tail"
         )
         print(
-            f"Kurtosis: {report_df.loc['Kurtosis', 'Portfolio']:.2f} vs {report_df.loc['Skewness', 'Benchmark']:.2f} (buy and hold)",
+            f"Kurtosis: {report_df.loc['Kurtosis', 'Portfolio']:.2f} vs {report_df.loc['Skewness', 'Benchmark']:.2f} (benchmark)",
             ", >3 = fat tails, <3 = thin tails",
         )
         print(
-            f"95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % vs {100*report_df.loc['VaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
+            f"95%-VaR: {100*report_df.loc['VaR', 'Portfolio']:.2f} % vs {100*report_df.loc['VaR', 'Benchmark']:.2f} % (benchmark) -> the lower the better"
         )
         print(
-            f"95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % vs {100*report_df.loc['CVaR', 'Benchmark']:.2f} % (buy and hold) -> the lower the better"
+            f"95%-CVaR: {100*report_df.loc['CVaR', 'Portfolio']:.2f} % vs {100*report_df.loc['CVaR', 'Benchmark']:.2f} % (benchmark) -> the lower the better"
         )
 
         print(f"\n{'  Strategy statistical information  ':-^50}")
         print(
-            f"Max drawdown: {100*report_df.loc['Max drawdown', 'Portfolio']:.2f} % vs {100*report_df.loc['Max drawdown', 'Benchmark']:.2f} % (buy and hold)"
+            f"Max drawdown: {100*report_df.loc['Max drawdown', 'Portfolio']:.2f} % vs {100*report_df.loc['Max drawdown', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
-            f"Kelly criterion: {100*report_df.loc['Kelly criterion', 'Portfolio']:.2f} % vs {100*report_df.loc['Kelly criterion', 'Benchmark']:.2f} % (buy and hold)"
+            f"Kelly criterion: {100*report_df.loc['Kelly criterion', 'Portfolio']:.2f} % vs {100*report_df.loc['Kelly criterion', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
-            f"Benchmark sensitivity (beta): {report_df.loc['Portfolio beta', 'Portfolio']:.2f} vs 1 (buy and hold)"
+            f"Benchmark sensitivity (beta): {report_df.loc['Portfolio beta', 'Portfolio']:.2f} vs 1 (benchmark)"
         )
         print(f"Determination coefficient R²: {report_df.loc['R2', 'Portfolio']:.2f}")
         print(
@@ -69,19 +67,19 @@ def print_portfolio_strategy_report(
         print(f"\n{'  Strategy ratios  ':-^50}")
         print("No risk free rate considered for the following ratios.\n")
         print(
-            f"Sharpe ratio annualized: {report_df.loc['Sharpe ratio', 'Portfolio']:.2f} vs {report_df.loc['Sharpe ratio', 'Benchmark']:.2f} (buy and hold)"
+            f"Sharpe ratio annualized: {report_df.loc['Sharpe ratio', 'Portfolio']:.2f} vs {report_df.loc['Sharpe ratio', 'Benchmark']:.2f} (benchmark)"
         )
         print(
-            f"Sortino ratio annualized: {report_df.loc['Sortino ratio', 'Portfolio']:.2f} vs {report_df.loc['Sortino ratio', 'Benchmark']:.2f} (buy and hold)"
+            f"Sortino ratio annualized: {report_df.loc['Sortino ratio', 'Portfolio']:.2f} vs {report_df.loc['Sortino ratio', 'Benchmark']:.2f} (benchmark)"
         )
         print(
-            f"Burke ratio annualized: {report_df.loc['Burke ratio', 'Portfolio']:.2f} vs {report_df.loc['Burke ratio', 'Benchmark']:.2f} (buy and hold)"
+            f"Burke ratio annualized: {report_df.loc['Burke ratio', 'Portfolio']:.2f} vs {report_df.loc['Burke ratio', 'Benchmark']:.2f} (benchmark)"
         )
         print(
-            f"Calmar ratio annualized: {report_df.loc['Calmar ratio', 'Portfolio']:.2f} vs {report_df.loc['Calmar ratio', 'Benchmark']:.2f} (buy and hold)"
+            f"Calmar ratio annualized: {report_df.loc['Calmar ratio', 'Portfolio']:.2f} vs {report_df.loc['Calmar ratio', 'Benchmark']:.2f} (benchmark)"
         )
         print(
-            f"Tail ratio annualized: {report_df.loc['Tail ratio', 'Portfolio']:.2f} vs {report_df.loc['Tail ratio', 'Benchmark']:.2f} (buy and hold)"
+            f"Tail ratio annualized: {report_df.loc['Tail ratio', 'Portfolio']:.2f} vs {report_df.loc['Tail ratio', 'Benchmark']:.2f} (benchmark)"
         )
         print(
             f"Treynor ratio annualized: {report_df.loc['Treynor ratio', 'Portfolio']:.2f}"
@@ -146,7 +144,7 @@ def plot_from_trade_df(
         ptf_and_bench (pd.DataFrame): Dataframe containing the returns, cum returns, drawdown for both the strategy portflio and the benchmark
         ptf_weights_evolution (pd.DataFrame): A dataframe with the weights of the portfolio at each date
         ptf_beta_and_regime (pd.DataFrame): A dataframe containing the beta and the market regime over time.
-    """    
+    """
     fig, ax = plt.subplots(4, 2, figsize=(25, 30))
 
     ############################################## Perf and Regimes
@@ -169,7 +167,7 @@ def plot_from_trade_df(
         f"Performance benchmark vs portfolio with regime detected", fontsize=20
     )
     ax[0, 0].grid()
-    ax[0, 0].legend(loc='lower right',fontsize=15)
+    ax[0, 0].legend(loc="lower right", fontsize=15)
     ############################################## DRAWDOWN
     ax[1, 0].fill_between(
         ptf_and_bench.index,
@@ -193,7 +191,7 @@ def plot_from_trade_df(
         fontsize=20,
     )
     ax[1, 0].grid()
-    ax[1, 0].legend(loc='lower right',fontsize=15)
+    ax[1, 0].legend(loc="lower right", fontsize=15)
     ########################################### HISTORIGRAM
     samples_bench = sorted(ptf_and_bench["returns"].to_numpy())
     samples_strat = sorted(ptf_and_bench["strategy_returns"].to_numpy())
@@ -229,9 +227,9 @@ def plot_from_trade_df(
     ax[3, 0].set_ylabel("Weights", fontsize=18)
     ax[3, 0].set_title("Portfolio weights evolution over time", fontsize=20)
     ax[3, 0].grid()
-    ax[3, 0].legend(ptf_weights_evolution.columns.to_list(), fontsize=15)
+    ax[3, 0].legend(ptf_weights_evolution.columns.to_list(), fontsize=6)
 
-    ########################################### WEIGHTS DRIFT
+    ########################################### Decile perf (conditional)
     df_rets = pd.DataFrame(
         {
             "returns": ptf_and_bench["returns"],
@@ -311,7 +309,7 @@ def plot_from_trade_df(
 
     ax[2, 0].plot(
         ptf_and_bench.index,
-        ptf_and_bench["strategy_cum_returns"]
+        ptf_and_bench["strategy_returns"]
         .rolling(n_rolling)
         .apply(
             lambda rets: (252 * rets.mean()) / (rets.std() * (252**0.5)),
@@ -322,7 +320,7 @@ def plot_from_trade_df(
     )
     ax[2, 0].plot(
         ptf_and_bench.index,
-        ptf_and_bench["cum_returns"]
+        ptf_and_bench["returns"]
         .rolling(n_rolling)
         .apply(
             lambda rets: (252 * rets.mean()) / (rets.std() * (252**0.5)),

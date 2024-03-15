@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from backtest.metrics import drawdown
 from backtest.reports import plot_from_trade_df, print_portfolio_strategy_report
 from data.universe import Universe
-from portfolio_management.allocation import ALLOCATION_DICT
+from portfolio_management.allocation import ALLOCATION_DICT, Allocation
 from portfolio_management.beta_estimation import predict_next_beta_and_alpha
 from portfolio_management.market_regime import detect_market_regime
 from utility.types import (
@@ -60,7 +60,7 @@ class Backtester:
         allocation_type: AllocationMethodsEnum,
         rebalance_frequency: RebalanceFrequencyEnum,
         market_regime_model: RegimeDetectionModels,
-        transaction_cost_by_securities: Dict[str, float],
+        transaction_cost_by_securities: Optional[Dict[str, float]] = None,
         bullish_leverage_by_securities: Optional[Dict[str, float]] = None,
         bearish_leverage_by_securities: Optional[Dict[str, float]] = None,
         verbose: bool = True,
@@ -88,10 +88,11 @@ class Backtester:
             Tuple[Union[pd.Series, pd.DataFrame], ...]: Return a tuple of DataFrame/Series respectively : The returns of the strategy and the bench ptf_and_bench (Series), the historical daily weights of the portfolio ptf_weights_df (DataFrame), The regime a the beta at each detection date ptf_regime_beta_df (DataFrame), all risk/perf metrics of the strategy ptf_metrics_df (DataFrame)
         """
         assert starting_offset >= 0, "Error, provide a positive starting offset."
-        assert set(transaction_cost_by_securities.keys()) == set(
-            self.__universe_returns.columns
-        ), "Error, you need to provide transaction cost for every security in the universe"
-        # Handle null leverages
+        # Handle null leverages and fees
+        if transaction_cost_by_securities is None:
+            transaction_cost_by_securities = {
+                k: 0.0 for k in self.__universe_returns.columns
+            }
         if bearish_leverage_by_securities is None:
             bearish_leverage_by_securities = {
                 k: 1 for k in self.__universe_returns.columns
@@ -100,6 +101,7 @@ class Backtester:
             bullish_leverage_by_securities = {
                 k: 1 for k in self.__universe_returns.columns
             }
+
         # List to store the returns and weights at each iteration (i.e. Days)
         regimes_histo: List[Dict[str, Union[float, int, pd.Timestamp, datetime]]] = []
         returns_histo = []
@@ -150,20 +152,23 @@ class Backtester:
                     leverage_to_use = bearish_leverage_by_securities
                 else:
                     leverage_to_use = bullish_leverage_by_securities
-                assets = Universe.get_universe_securities()
+                # assets = Universe.get_universe_securities()
                 first_rebalance = True
                 if verbose:
                     print(f"Rebalancing the portfolio on {index}...")
-                weights = ALLOCATION_DICT[allocation_type](
-                    assets,
-                    self.__universe_returns[assets].loc[:index]
-                    # self.__universe_returns.columns, self.__universe_returns.loc[:index]
+                weights = allocate_assets(
+                    row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
                 )
+                # ALLOCATION_DICT[allocation_type](
+                #     assets,
+                #     self.__universe_returns[assets].loc[:index]
+                #     # self.__universe_returns.columns, self.__universe_returns.loc[:index]
+                # )
                 # Row returns with applied fees
                 returns_with_applied_fees = []
                 for ind, value in row.loc[list(weights.keys())].items():
                     returns_with_applied_fees.append(
-                        (value - transaction_cost_by_securities.get(str(ind),0.0))
+                        (value - transaction_cost_by_securities.get(str(ind), 0.0))
                     )
                 returns = np.array(returns_with_applied_fees)
             elif index in DETECTION_DATES:
@@ -195,20 +200,23 @@ class Backtester:
                         leverage_to_use = bearish_leverage_by_securities
                     else:
                         leverage_to_use = bullish_leverage_by_securities
-                    assets = Universe.get_universe_securities()
+                    # assets = Universe.get_universe_securities()
                     first_rebalance = True
                     if verbose:
                         print(f"Rebalancing the portfolio on {index}...")
-                    weights = ALLOCATION_DICT[allocation_type](
-                        assets,
-                        self.__universe_returns[assets].loc[:index]
-                        # self.__universe_returns.columns, self.__universe_returns.loc[:index]
+                    weights = allocate_assets(
+                        row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
                     )
+                    # weights = ALLOCATION_DICT[allocation_type](
+                    #     assets,
+                    #     self.__universe_returns[assets].loc[:index]
+                    #     # self.__universe_returns.columns, self.__universe_returns.loc[:index]
+                    # )
                     # Row returns with applied fees
                     returns_with_applied_fees = []
                     for ind, value in row.loc[list(weights.keys())].items():
                         returns_with_applied_fees.append(
-                            (value - transaction_cost_by_securities.get(str(ind),0.0))
+                            (value - transaction_cost_by_securities.get(str(ind), 0.0))
                         )
                     returns = np.array(returns_with_applied_fees)
             else:
@@ -277,3 +285,19 @@ class Backtester:
         if print_metrics is True:
             return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df, ptf_metrics_df
         return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df
+
+
+def allocate_assets(list_of_assets: List[str], ester_weight: float) -> Dict[str, float]:
+    assert (
+        "ESTR_ETF" in list_of_assets
+    ), "Error, provide a valid list of assets, it must contain the ESTR_ETF columns which is the monetary deposit rate."
+    assert 0 <= ester_weight <= 0.6, "Error equity allocation cannot be lower then 40 %"
+    list_of_assets.remove("ESTR_ETF")
+    weights = {
+        security: weight_base_1 * (1 - ester_weight)
+        for security, weight_base_1 in Allocation.equal_weighted_allocation(
+            list_of_assets
+        ).items()
+    }
+    weights["ESTR_ETF"] = ester_weight
+    return weights

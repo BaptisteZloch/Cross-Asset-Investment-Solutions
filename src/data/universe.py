@@ -8,6 +8,31 @@ class Universe:
     _instance = None
     _PATH = "../data/data_cross_asset.xlsx"
 
+    def __init__(
+        self,
+        keep_leveraged_etf: bool = False,
+        keep_bonds_etf: bool = False,
+        keep_only_benchmark_universe: bool = False,
+    ) -> None:
+        Universe.__load_universe()
+        if keep_only_benchmark_universe is True and Universe.__universe is not None:
+            Universe.__universe = Universe.__universe[["SX5T", "SPTR500N", "ESTR_ETF"]]
+        else:
+            col_to_remove = []
+            if keep_bonds_etf is False:
+                col_to_remove.extend(
+                    [
+                        "EURO_GOV_1-3Y",
+                        "EURO_GOV_3-5Y",
+                        "EURO_GOV_7-10Y",
+                        "EURO_GOV_10-15Y",
+                    ]
+                )
+            if keep_leveraged_etf is False:
+                col_to_remove.extend(["NASDAQ-100_LEVIER_2", "SX5T_levier_2"])
+            if len(col_to_remove) > 0 and Universe.__universe is not None:
+                Universe.__universe = Universe.__universe.drop(columns=col_to_remove)
+
     @staticmethod
     def __load_universe():
         BASE_ETF = (
