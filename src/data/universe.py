@@ -4,7 +4,6 @@ import pandas as pd
 from collections.abc import Iterable
 
 
-
 class Universe:
     __universe: Optional[pd.DataFrame] = None
     _instance = None
@@ -117,22 +116,22 @@ class Universe:
         return wrapper
 
     @staticmethod
-    @__check_loaded
+    # @__check_loaded
     def get_universe_price():
         return Universe.__universe
 
     @staticmethod
-    @__check_loaded
+    # @__check_loaded
     def get_universe_returns():
         return Universe.__universe.pct_change().fillna(0)
 
     @staticmethod
-    @__check_loaded
+    # @__check_loaded
     def get_universe_perfs():
         return (Universe.__universe.pct_change().fillna(0) + 1).cumprod()
 
     @staticmethod
-    @__check_loaded
+    # @__check_loaded
     def get_universe_securities() -> List[str]:
         return Universe.__universe.columns.to_list()
 
