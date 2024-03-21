@@ -1,6 +1,8 @@
-from typing import Callable, List, Optional, Self
+from typing_extensions import Self
+from typing import Callable, List, Optional
 import pandas as pd
 from collections.abc import Iterable
+
 
 
 class Universe:

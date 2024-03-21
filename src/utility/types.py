@@ -1,5 +1,5 @@
-from enum import StrEnum
-
+from enum import auto
+from strenum import StrEnum
 
 class RebalanceFrequencyEnum(StrEnum):
     DAILY = "1B"
