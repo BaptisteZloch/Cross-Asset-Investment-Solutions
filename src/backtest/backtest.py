@@ -60,6 +60,7 @@ class Backtester:
         allocation_type: AllocationMethodsEnum,
         rebalance_frequency: RebalanceFrequencyEnum,
         market_regime_model: RegimeDetectionModels,
+        regime_frequency: RebalanceFrequencyEnum = RebalanceFrequencyEnum.BI_MONTHLY,
         transaction_cost_by_securities: Optional[Dict[str, float]] = None,
         bullish_leverage_by_securities: Optional[Dict[str, float]] = None,
         bearish_leverage_by_securities: Optional[Dict[str, float]] = None,
@@ -114,9 +115,10 @@ class Backtester:
             frequency=rebalance_frequency,
         )
         # Get all detection dates for running the regime inference
-        DETECTION_DATES = get_regime_detection_dates(
+        DETECTION_DATES = get_rebalance_dates(
             start_date=self.__universe_returns.index[0],
             end_date=self.__universe_returns.index[-1],
+            frequency=regime_frequency,
         )
 
         first_rebalance = False  # Create a portfolio at the first date of the backtest
@@ -135,16 +137,17 @@ class Backtester:
                     scale_data=True,
                     scaler_type="robust",
                 )
-                next_beta = predict_next_beta_and_alpha(
-                    market_returns=self.__market_returns.loc[:index]
-                    # .resample("1W-FRI")
-                    # .last()
-                    .to_numpy(),
-                    asset_returns=self.__benchmark_returns.loc[:index]
-                    # .resample("1W-FRI")
-                    # .last()
-                    .to_numpy(),
-                )[-1]
+                next_beta = 1
+                # next_beta = predict_next_beta_and_alpha(
+                #     market_returns=self.__market_returns.loc[:index]
+                #     # .resample("1W-FRI")
+                #     # .last()
+                #     .to_numpy(),
+                #     asset_returns=self.__benchmark_returns.loc[:index]
+                #     # .resample("1W-FRI")
+                #     # .last()
+                #     .to_numpy(),
+                # )[-1]
                 regimes_histo.append(
                     {"Date": index, "Regime": REGIMES[-1], "next_beta": next_beta}
                 )
@@ -169,6 +172,7 @@ class Backtester:
                 for ind, value in row.loc[list(weights.keys())].items():
                     returns_with_applied_fees.append(
                         (value - transaction_cost_by_securities.get(str(ind), 0.0))
+                        * leverage_to_use.get(str(ind), 1)
                     )
                 returns = np.array(returns_with_applied_fees)
             elif index in DETECTION_DATES:
@@ -179,16 +183,17 @@ class Backtester:
                     scale_data=True,
                     scaler_type="robust",
                 )
-                next_beta = predict_next_beta_and_alpha(
-                    market_returns=self.__market_returns.loc[:index]
-                    # .resample("1W-FRI")
-                    # .last()
-                    .to_numpy(),
-                    asset_returns=self.__benchmark_returns.loc[:index]
-                    # .resample("1W-FRI")
-                    # .last()
-                    .to_numpy(),
-                )[-1]
+                next_beta = 1
+                # next_beta = predict_next_beta_and_alpha(
+                #     market_returns=self.__market_returns.loc[:index]
+                #     # .resample("1W-FRI")
+                #     # .last()
+                #     .to_numpy(),
+                #     asset_returns=self.__benchmark_returns.loc[:index]
+                #     # .resample("1W-FRI")
+                #     # .last()
+                #     .to_numpy(),
+                # )[-1]
                 regimes_histo.append(
                     {"Date": index, "Regime": REGIMES[-1], "next_beta": next_beta}
                 )
@@ -217,11 +222,19 @@ class Backtester:
                     for ind, value in row.loc[list(weights.keys())].items():
                         returns_with_applied_fees.append(
                             (value - transaction_cost_by_securities.get(str(ind), 0.0))
+                            * leverage_to_use.get(str(ind), 1)
                         )
                     returns = np.array(returns_with_applied_fees)
             else:
                 # Row returns
+                # ret_to_use= row.loc[list(weights.keys())]
                 returns = row.loc[list(weights.keys())].to_numpy()
+                # returns_with_applied_fees = []
+                # for ind, value in row.loc[list(weights.keys())].items():
+                #     returns_with_applied_fees.append(
+                #         (value) * leverage_to_use.get(str(ind), 1)
+                #     )
+                # returns = np.array(returns_with_applied_fees)
             weights = {
                 sec: w * leverage_to_use.get(sec, 1) for sec, w in weights.items()
             }
@@ -234,9 +247,9 @@ class Backtester:
 
             # Compute the weight drift due to assets price fluctuations
             weights = compute_weights_drift(
-                row.loc[list(weights.keys())].index.to_list(),
+                list(weights.keys()),
                 weights_np,
-                returns,
+                (returns * weights_np),
             )
 
         # The returns of the ptf
