@@ -28,7 +28,7 @@ def get_rebalance_dates(
     if isinstance(end_date, str):
         end_date = pd.to_datetime(end_date, infer_datetime_format=True)
     return set(
-        [start_date] + pd.date_range(start_date, end_date, freq=frequency).to_list()
+        [start_date] + pd.bdate_range(start_date, end_date, freq=frequency).to_list()
     )
 
 
@@ -46,7 +46,7 @@ def get_regime_detection_dates(
         Set[Union[pd.Timestamp, datetime]]: The dates at the regime detection model has to be ran.
     """
     return get_rebalance_dates(
-        start_date, end_date, frequency=RebalanceFrequencyEnum.WEEKLY
+        start_date, end_date, frequency=RebalanceFrequencyEnum.MONTH_END
     )
 
 

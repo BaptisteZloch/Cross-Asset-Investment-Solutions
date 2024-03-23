@@ -25,6 +25,9 @@ def print_portfolio_strategy_report(
             f"Expected return annualized: {100*report_df.loc['Expected return', 'Portfolio']:.2f} % vs {100*report_df.loc['Expected return', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
+            f"Alpha annualized: {(100*report_df.loc['Expected return', 'Portfolio']-report_df.loc['Portfolio beta', 'Portfolio']*100*report_df.loc['Expected return', 'Benchmark']):.2f} %"
+        )
+        print(
             f"CAGR: {100*report_df.loc['CAGR', 'Portfolio']:.2f} % vs {100*report_df.loc['CAGR', 'Benchmark']:.2f} % (benchmark)"
         )
         print(
@@ -298,9 +301,9 @@ def plot_from_trade_df(
     )
     ax[2, 1].scatter(windows_bh, bench_expected_return_profile, color="blue")
     ax[2, 1].set_xlabel("Investment horizon in days", fontsize=15)
-    ax[2, 1].set_ylabel("Returns", fontsize=15)
+    ax[2, 1].set_ylabel("Realized returns", fontsize=15)
     ax[2, 1].set_title(
-        f"Expected return with respect to investment horizon", fontsize=20
+        f"Realized return with respect to investment horizon", fontsize=20
     )
     ax[2, 1].grid()
     ax[2, 1].legend(fontsize=15)
