@@ -54,7 +54,7 @@ class Universe:
                 usecols=[
                     "Unnamed: 0",
                     "EUROPE _VALUE_FACTOR",
-                    "EUROPE _MOMENTUM_FACTOR",
+                    # "EUROPE _MOMENTUM_FACTOR",
                     "WATER_ESG",
                     "STOXX_EUROPE 600_TECHNOLOGY",
                     "STOXX_EUROPE 600_HEALTHCARE",
@@ -62,6 +62,7 @@ class Universe:
                     "EURO_GOV_3-5Y",
                     "EURO_GOV_7-10Y",
                     "EURO_GOV_10-15Y",
+                    "EPSILON_TREND",
                 ],
                 index_col=0,
                 skiprows=[1],
@@ -123,6 +124,7 @@ class Universe:
     @staticmethod
     # @__check_loaded
     def get_universe_returns():
+        
         return Universe.__universe.pct_change().fillna(0)
 
     @staticmethod

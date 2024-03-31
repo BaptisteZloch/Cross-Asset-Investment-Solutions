@@ -1,13 +1,11 @@
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from backtest.metrics import drawdown
 from backtest.reports import plot_from_trade_df, print_portfolio_strategy_report
-from data.universe import Universe
-from portfolio_management.allocation import ALLOCATION_DICT, Allocation
-from portfolio_management.beta_estimation import predict_next_beta_and_alpha
+from portfolio_management.allocation import Allocation
 from portfolio_management.market_regime import detect_market_regime
 from utility.types import (
     AllocationMethodsEnum,
@@ -18,7 +16,6 @@ from utility.types import (
 from utility.utils import (
     compute_weights_drift,
     get_rebalance_dates,
-    get_regime_detection_dates,
 )
 
 
@@ -57,13 +54,14 @@ class Backtester:
 
     def run_backtest(
         self,
-        allocation_type: AllocationMethodsEnum,
         rebalance_frequency: RebalanceFrequencyEnum,
         market_regime_model: RegimeDetectionModels,
         regime_frequency: RebalanceFrequencyEnum = RebalanceFrequencyEnum.BI_MONTHLY,
         transaction_cost_by_securities: Optional[Dict[str, float]] = None,
         bullish_leverage_by_securities: Optional[Dict[str, float]] = None,
         bearish_leverage_by_securities: Optional[Dict[str, float]] = None,
+        bullish_beta: float = 1.2,
+        bearish_beta: float = 0.9,
         verbose: bool = True,
         print_metrics: bool = True,
         plot_performance: bool = True,
@@ -123,6 +121,8 @@ class Backtester:
 
         first_rebalance = False  # Create a portfolio at the first date of the backtest
         leverage_to_use = bullish_leverage_by_securities
+        bullish_to_use = bullish_beta
+        days_in_same_regime = 0
         for index, row in tqdm(
             self.__universe_returns.iloc[starting_offset:].iterrows(),
             desc="Backtesting portfolio...",
@@ -138,23 +138,15 @@ class Backtester:
                     scaler_type="robust",
                 )
                 next_beta = 1
-                # next_beta = predict_next_beta_and_alpha(
-                #     market_returns=self.__market_returns.loc[:index]
-                #     # .resample("1W-FRI")
-                #     # .last()
-                #     .to_numpy(),
-                #     asset_returns=self.__benchmark_returns.loc[:index]
-                #     # .resample("1W-FRI")
-                #     # .last()
-                #     .to_numpy(),
-                # )[-1]
                 regimes_histo.append(
                     {"Date": index, "Regime": REGIMES[-1], "next_beta": next_beta}
                 )
                 if REGIMES[-1] == 1:  # Bearish market
                     leverage_to_use = bearish_leverage_by_securities
+                    days_in_same_regime = 0
                 else:
                     leverage_to_use = bullish_leverage_by_securities
+                    days_in_same_regime = 0
                 # assets = Universe.get_universe_securities()
                 first_rebalance = True
                 if verbose:
@@ -162,11 +154,6 @@ class Backtester:
                 weights = allocate_assets(
                     row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
                 )
-                # ALLOCATION_DICT[allocation_type](
-                #     assets,
-                #     self.__universe_returns[assets].loc[:index]
-                #     # self.__universe_returns.columns, self.__universe_returns.loc[:index]
-                # )
                 # Row returns with applied fees
                 returns_with_applied_fees = []
                 for ind, value in row.loc[list(weights.keys())].items():
@@ -184,16 +171,6 @@ class Backtester:
                     scaler_type="robust",
                 )
                 next_beta = 1
-                # next_beta = predict_next_beta_and_alpha(
-                #     market_returns=self.__market_returns.loc[:index]
-                #     # .resample("1W-FRI")
-                #     # .last()
-                #     .to_numpy(),
-                #     asset_returns=self.__benchmark_returns.loc[:index]
-                #     # .resample("1W-FRI")
-                #     # .last()
-                #     .to_numpy(),
-                # )[-1]
                 regimes_histo.append(
                     {"Date": index, "Regime": REGIMES[-1], "next_beta": next_beta}
                 )
@@ -203,8 +180,10 @@ class Backtester:
                 else:
                     if REGIMES[-1] == 1:  # Bearish market
                         leverage_to_use = bearish_leverage_by_securities
+                        days_in_same_regime = 0
                     else:
                         leverage_to_use = bullish_leverage_by_securities
+                        days_in_same_regime = 0
                     # assets = Universe.get_universe_securities()
                     first_rebalance = True
                     if verbose:
@@ -212,11 +191,6 @@ class Backtester:
                     weights = allocate_assets(
                         row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
                     )
-                    # weights = ALLOCATION_DICT[allocation_type](
-                    #     assets,
-                    #     self.__universe_returns[assets].loc[:index]
-                    #     # self.__universe_returns.columns, self.__universe_returns.loc[:index]
-                    # )
                     # Row returns with applied fees
                     returns_with_applied_fees = []
                     for ind, value in row.loc[list(weights.keys())].items():
@@ -235,6 +209,7 @@ class Backtester:
                 #         (value) * leverage_to_use.get(str(ind), 1)
                 #     )
                 # returns = np.array(returns_with_applied_fees)
+            days_in_same_regime += 1
             weights = {
                 sec: w * leverage_to_use.get(sec, 1) for sec, w in weights.items()
             }

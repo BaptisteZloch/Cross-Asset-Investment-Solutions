@@ -5,6 +5,16 @@ from filterpy.kalman import KalmanFilter
 from tqdm import tqdm
 
 
+def converging_value(current_value, initial_value, long_term_value, smoothing_lambda):
+    assert (
+        0.1 <= long_term_value <= 3 and 0.1 <= initial_value <= 3
+    ), "long_term_value must be between 0.1 and 3"
+    return long_term_value - (
+        (long_term_value - initial_value)
+        * (1 - np.exp(-smoothing_lambda / current_value))
+    )
+
+
 def estimate_dynamic_beta_and_alpha(
     market_returns: npt.NDArray[np.float32], asset_returns: npt.NDArray[np.float32]
 ) -> Tuple[npt.NDArray[np.float32], ...]:
