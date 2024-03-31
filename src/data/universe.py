@@ -3,6 +3,8 @@ from typing import Callable, List, Optional
 import pandas as pd
 from collections.abc import Iterable
 
+from utility.constants import TRADING_DAYS
+
 
 class Universe:
     __universe: Optional[pd.DataFrame] = None
@@ -47,6 +49,7 @@ class Universe:
             .dropna()
             .asfreq("B", method="ffill")
         )
+        BASE_ETF['ESTR_ETF'] = ((BASE_ETF['ESTR_ETF']/TRADING_DAYS/100)+1).cumprod()
         ETF_THEMATICS = (
             pd.read_excel(
                 Universe._PATH,

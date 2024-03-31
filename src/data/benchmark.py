@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from utility.constants import TRADING_DAYS
 from utility.types import RebalanceFrequencyEnum
 from utility.utils import compute_weights_drift, get_rebalance_dates
 
@@ -107,6 +108,9 @@ class Benchmark:
             .dropna()
             .asfreq("B", method="ffill")
         )
+        benchmark["OISESTR"] = (
+            (benchmark["OISESTR"] / TRADING_DAYS / 100) + 1
+        ).cumprod()
         return benchmark
 
     def get_benchmark_returns_data(self) -> pd.DataFrame:
