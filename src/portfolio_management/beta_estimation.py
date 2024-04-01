@@ -1,11 +1,27 @@
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
 import numpy.typing as npt
 from filterpy.kalman import KalmanFilter
 from tqdm import tqdm
 
 
-def converging_value(current_value, initial_value, long_term_value, smoothing_lambda):
+def beta_convergence(
+    current_value: Union[float, npt.NDArray[np.float32]],
+    initial_value: float,
+    long_term_value: float,
+    smoothing_lambda: float,
+) -> Union[float, npt.NDArray[np.float32]]:
+    """_summary_
+
+    Args:
+        current_value ( Union[float,npt.NDArray[np.float32]]): The current beta exposure calculated
+        initial_value (float): The initial value (starting point)
+        long_term_value (float): The long target to converge to.
+        smoothing_lambda (float): The smoothing coefficient, the higher the more slowly the value will converge.
+
+    Returns:
+        Union[float, npt.NDArray[np.float32]]: The new beta calculated or a vector of each value of the series.
+    """
     assert (
         0.1 <= long_term_value <= 3 and 0.1 <= initial_value <= 3
     ), "long_term_value must be between 0.1 and 3"

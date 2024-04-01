@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing_extensions import Self
 from typing import Callable, List, Optional
 import pandas as pd
@@ -13,6 +14,7 @@ class Universe:
 
     def __init__(
         self,
+        market_column: str = "SPTR500N",
         keep_leveraged_etf: bool = False,
         keep_bonds_etf: bool = False,
         keep_only_benchmark_universe: bool = False,
@@ -35,6 +37,27 @@ class Universe:
                 col_to_remove.extend(["NASDAQ-100_LEVIER_2", "SX5T_levier_2"])
             if len(col_to_remove) > 0 and Universe.__universe is not None:
                 Universe.__universe = Universe.__universe.drop(columns=col_to_remove)
+        assert (
+            market_column in Universe.__universe.columns
+        ), "Error, provide a value market column"
+        self.__market_column = market_column
+
+    @property
+    def market_returns(self) -> pd.Series:
+        """A pandas series representing the market returns, will be used to run the market regime algorithm on
+
+        Returns:
+            pd.Series: The Market returns.
+        """
+        return self.get_universe_returns()[self.__market_column]
+
+    def get_market_returns(self) -> pd.Series:
+        """A pandas series representing the market returns, will be used to run the market regime algorithm on
+
+        Returns:
+            pd.Series: The Market returns.
+        """
+        return self.market_returns
 
     @staticmethod
     def __load_universe():
@@ -49,7 +72,9 @@ class Universe:
             .dropna()
             .asfreq("B", method="ffill")
         )
-        BASE_ETF['ESTR_ETF'] = ((BASE_ETF['ESTR_ETF']/TRADING_DAYS/100)+1).cumprod()
+        BASE_ETF["ESTR_ETF"] = (
+            (BASE_ETF["ESTR_ETF"] / TRADING_DAYS / 100) + 1
+        ).cumprod()
         ETF_THEMATICS = (
             pd.read_excel(
                 Universe._PATH,
@@ -119,6 +144,41 @@ class Universe:
 
         return wrapper
 
+    @property
+    def defensive_securities(self) -> List[str]:
+        return list(
+            set(Universe.__universe.columns.to_list()).intersection(
+                [
+                    "EUROPE _VALUE_FACTOR",
+                    "STOXX_EUROPE 600_HEALTHCARE",
+                    "EPSILON_TREND",
+                    "Px fut SX5E",
+                    "Px fut sp500",
+                    "SX5T",
+                    "SPTR500N",
+                    "ESTR_ETF",
+                ]
+            )
+        )
+
+    @property
+    def offensive_securities(self) -> List[str]:
+        return list(
+            set(Universe.__universe.columns.to_list()).intersection(
+                [
+                    "WATER_ESG",
+                    "STOXX_EUROPE 600_TECHNOLOGY",
+                    "EPSILON_TREND",
+                    "Px fut SX5E",
+                    "Px fut sp500",
+                    "Px fut nasdaq",
+                    "SX5T",
+                    "SPTR500N",
+                    "ESTR_ETF",
+                ]
+            )
+        )
+
     @staticmethod
     # @__check_loaded
     def get_universe_price():
@@ -127,7 +187,6 @@ class Universe:
     @staticmethod
     # @__check_loaded
     def get_universe_returns():
-        
         return Universe.__universe.pct_change().fillna(0)
 
     @staticmethod
