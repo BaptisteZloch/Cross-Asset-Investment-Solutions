@@ -25,7 +25,6 @@ class RegimeDetectionModels(StrEnum):
     HIDDEN_MARKOV_MODEL = "hmm"
     KMEANS = "kmeans"
     BISECTING_KMEANS = "bisecting_kmeans"
-    JUMP_MODEL = "jump_model"
 
     @classmethod
     def list_values(cls):
@@ -38,7 +37,8 @@ class RegimeDetectionModels(StrEnum):
 
 class AllocationMethodsEnum(StrEnum):
     EQUALLY_WEIGHTED = "EQUALLY_WEIGHTED"
-    # MAX_SHARPE = "MAX_SHARPE"
+    RISK_PARITY = "RISK_PARITY"
+    MAX_SHARPE = "MAX_SHARPE"
 
     @classmethod
     def list_values(cls):

@@ -1,16 +1,15 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from backtest.metrics import drawdown
 from backtest.reports import plot_from_trade_df, print_portfolio_strategy_report
 from data.universe import Universe
-from portfolio_management.allocation import Allocation
+from portfolio_management.allocation import allocate_assets
 from portfolio_management.beta_estimation import beta_convergence
 from portfolio_management.market_regime import detect_market_regime
 from utility.types import (
-    AllocationMethodsEnum,
     RebalanceFrequencyEnum,
     RegimeDetectionModels,
 )
@@ -36,6 +35,7 @@ class Backtester:
         """
         self.__universe_obj = universe_obj
         universe_returns = self.__universe_obj.get_universe_returns()
+        # Select the intersection dates between universe and bench
         lower_bound = max(
             [
                 universe_returns.index[0],
@@ -59,37 +59,55 @@ class Backtester:
         rebalance_frequency: RebalanceFrequencyEnum,
         market_regime_model: RegimeDetectionModels,
         regime_frequency: RebalanceFrequencyEnum = RebalanceFrequencyEnum.BI_MONTHLY,
-        bullish_beta: float = 1.2,
-        bearish_beta: float = 0.9,
-        bullish_lambda_convergence: int = 50,
-        bearish_lambda_convergence: int = 50,
+        risk_on_beta: float = 1.2,
+        risk_off_beta: float = 0.9,
+        risk_on_lambda_convergence: int = 50,
+        risk_off_lambda_convergence: int = 50,
         verbose: bool = True,
         print_metrics: bool = True,
         plot_performance: bool = True,
     ) -> Tuple[Union[pd.Series, pd.DataFrame], ...]:
-        """_summary_
+        """Run a backtest of the strategy
 
         Args:
+        ----
             rebalance_frequency (RebalanceFrequencyEnum): The portfolio rebalance frequency usually monthly.
             market_regime_model (RegimeDetectionModels): The market regime detection model to use.
-            regime_frequency (RebalanceFrequencyEnum, optional): _description_. Defaults to RebalanceFrequencyEnum.BI_MONTHLY.
-            bullish_beta (float, optional): _description_. Defaults to 1.2.
-            bearish_beta (float, optional): _description_. Defaults to 0.9.
+            regime_frequency (RebalanceFrequencyEnum, optional): The regime detection frequency, should be below or equal to `rebalance_frequency`. Defaults to RebalanceFrequencyEnum.BI_MONTHLY.
+            risk_on_beta (float, optional): The leverage to use during risk on period (regime=0). Defaults to 1.2.
+            risk_off_beta (float, optional): The leverage to use during risk off period (regime=1). Defaults to 0.9.
+            risk_on_lambda_convergence (int, optional): The speed of convergence of the leverage during risk on period (regime=0). Defaults to 50.
+            risk_off_lambda_convergence (int, optional): The speed of convergence of the leverage during risk off period (regime=1). Defaults to 50.
             verbose (bool, optional): Print rebalance dates... Defaults to True.
             print_metrics (bool, optional): Print the metrics of the strategy. Defaults to True.
             plot_performance (bool, optional): Plot several Chart showing the performances of the strategy. Defaults to True.
-            20 (int, optional): _description_. Defaults to 20.
 
         Returns:
-            Tuple[Union[pd.Series, pd.DataFrame], ...]: Return a tuple of DataFrame/Series respectively : The returns of the strategy and the bench ptf_and_bench (Series), the historical daily weights of the portfolio ptf_weights_df (DataFrame), The regime a the beta at each detection date ptf_regime_beta_df (DataFrame), all risk/perf metrics of the strategy ptf_metrics_df (DataFrame)
+        ----
+            Tuple[Union[pd.Series, pd.DataFrame], ...]: Respectively the returns of the portfolio and bench, the weight of the portfolio, the detected regimes, and all the metrics computed : ptf_and_bench, ptf_weights_equal_weight, regimes, metrics_df if print_metrics is True else ptf_and_bench, ptf_weights_equal_weight, regimes
         """
-        # Handle fees (no fees here)
-        transaction_cost_by_securities = {
-            k: 0.0 for k in self.__universe_returns.columns
+        # initial values used in the backtest
+        first_rebalance = False  # Create a portfolio at the first date of the backtest
+        target_beta = risk_on_beta  # Long term beta the portfolio needs to converge to
+        initial_period_beta = 1  # Store the initial beta (expo) value, this value will be updated at each regime change it's used in the beta convergence function.
+        new_beta = risk_on_beta  # The current beta
+        days_in_same_regime = 1  # Count the number of days in the same regime (used in the converge beta functon)
+        weights = allocate_assets(self.__universe_obj.offensive_securities, 0.2)
+        leverage_to_use = {
+            k: 1
+            if k not in ["Px fut SX5E", "Px fut sp500", "Px fut nasdaq"]
+            else new_beta
+            for k in self.__universe_returns.columns
         }
-
         # List to store the returns and weights at each iteration (i.e. Days)
-        regimes_histo: List[Dict[str, Union[float, int, pd.Timestamp, datetime]]] = []
+        regimes_histo: List[Dict[str, Union[float, int, pd.Timestamp, datetime]]] = [
+            {
+                "Date": self.__universe_returns.index[0],
+                "Regime": 0,
+                "next_beta": new_beta,
+            }
+        ]
+
         returns_histo = []
         weights_histo: List[Dict[str, float]] = []
 
@@ -106,17 +124,6 @@ class Backtester:
             frequency=regime_frequency,
         )
 
-        # initial values used in the backtest
-
-        first_rebalance = False  # Create a portfolio at the first date of the backtest
-        target_beta = bullish_beta  # Long term beta the portfolio needs to converge to
-        initial_period_beta = 1  # Store the initial beta (expo) value, this value will be updated at each regime change it's used in the beta convergence function.
-        new_beta = bullish_beta  # The current beta
-        days_in_same_regime = 0  # Count the number of days in the same regime (used in the converge beta functon)
-        leverage_to_use = {
-            k: 1 if k not in ["Px fut SX5E", "Px fut sp500","Px fut nasdaq"] else new_beta
-            for k in self.__universe_returns.columns
-        }
         for index, row in tqdm(
             self.__universe_returns.iloc[20:].iterrows(),
             desc="Backtesting portfolio...",
@@ -131,29 +138,30 @@ class Backtester:
                     scale_data=True,
                     scaler_type="robust",
                 )
-                initial_period_beta = new_beta
-                days_in_same_regime = 0
-                target_beta = bearish_beta if REGIMES[-1] == 1 else bullish_beta
-
-                # assets = Universe.get_universe_securities()
+                target_beta = risk_off_beta if REGIMES[-1] == 1 else risk_on_beta
                 first_rebalance = True
+
                 if verbose:
                     print(f"Rebalancing the portfolio on {index}...")
-                weights = allocate_assets(
-                    self.__universe_obj.defensive_securities
-                    if REGIMES[-1] == 1
-                    else self.__universe_obj.offensive_securities,
-                    0.2
-                    # row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
-                )
-                # Row returns with applied fees
-                returns_with_applied_fees = []
-                for ind, value in row.loc[list(weights.keys())].items():
-                    returns_with_applied_fees.append(
-                        (value - transaction_cost_by_securities.get(str(ind), 0.0))
-                        * leverage_to_use.get(str(ind), 1)
+
+                if REGIMES[-1] != regimes_histo[-1].get("Regime", 0):
+                    days_in_same_regime = 1
+                    initial_period_beta = new_beta
+                    weights = allocate_assets(
+                        self.__universe_obj.defensive_securities
+                        if REGIMES[-1] == 1
+                        else self.__universe_obj.offensive_securities,
+                        0.3 if REGIMES[-1] == 1 else 0.1,
                     )
-                returns = np.array(returns_with_applied_fees)
+
+                new_beta = beta_convergence(
+                    current_value=days_in_same_regime,
+                    initial_value=initial_period_beta,  # type: ignore
+                    long_term_value=target_beta,
+                    smoothing_lambda=risk_on_lambda_convergence
+                    if REGIMES[-1] == 0
+                    else risk_off_lambda_convergence,
+                )
             elif index in DETECTION_DATES:
                 # Detect market regime on the market variable provided it has to be returns
                 REGIMES = detect_market_regime(
@@ -162,74 +170,57 @@ class Backtester:
                     scale_data=True,
                     scaler_type="robust",
                 )
+                target_beta = risk_off_beta if REGIMES[-1] == 1 else risk_on_beta
 
-                if regimes_histo[-2].get("Regime") == regimes_histo[-1].get("Regime"):
-                    # Row returns
-                    returns = row.loc[list(weights.keys())].to_numpy()
-                else:
+                if REGIMES[-1] != regimes_histo[-1].get("Regime", 0):
                     initial_period_beta = new_beta
-                    days_in_same_regime = 0
-                    target_beta = bearish_beta if REGIMES[-1] == 1 else bullish_beta
-                    first_rebalance = True
+                    days_in_same_regime = 1
                     if verbose:
                         print(f"Rebalancing the portfolio on {index}...")
                     weights = allocate_assets(
                         self.__universe_obj.defensive_securities
                         if REGIMES[-1] == 1
                         else self.__universe_obj.offensive_securities,
-                        0.2
-                        # row.index.to_list(), 0.35 if REGIMES[-1] == 1 else 0.1
+                        0.3 if REGIMES[-1] == 1 else 0.1,
                     )
-                    # Row returns with applied fees
-                    returns_with_applied_fees = []
-                    for ind, value in row.loc[list(weights.keys())].items():
-                        returns_with_applied_fees.append(
-                            (value - transaction_cost_by_securities.get(str(ind), 0.0))
-                            * leverage_to_use.get(str(ind), 1)
-                        )
-                    returns = np.array(returns_with_applied_fees)
-            else:
-                # Row returns
-                # ret_to_use= row.loc[list(weights.keys())]
-                returns = row.loc[list(weights.keys())].to_numpy()
-                # returns_with_applied_fees = []
-                # for ind, value in row.loc[list(weights.keys())].items():
-                #     returns_with_applied_fees.append(
-                #         (value) * leverage_to_use.get(str(ind), 1)
-                #     )
-                # returns = np.array(returns_with_applied_fees)
+                new_beta = beta_convergence(
+                    current_value=days_in_same_regime,
+                    initial_value=initial_period_beta,  # type: ignore
+                    long_term_value=target_beta,
+                    smoothing_lambda=risk_on_lambda_convergence
+                    if REGIMES[-1] == 0
+                    else risk_off_lambda_convergence,
+                )
             days_in_same_regime += 1
-            new_beta = beta_convergence(
-                current_value=days_in_same_regime,
-                initial_value=initial_period_beta,
-                long_term_value=target_beta,
-                smoothing_lambda=bullish_lambda_convergence
-                if REGIMES[-1] == 0
-                else bearish_lambda_convergence,
-            )
+
             regimes_histo.append(
-                {"Date": index, "Regime": REGIMES[-1], "next_beta": new_beta}
+                {"Date": index, "Regime": REGIMES[-1], "next_beta": new_beta}  # type: ignore
             )
             # Only leverage the futures columns
             leverage_to_use = {
-                k: 1 if k not in ["Px fut SX5E", "Px fut sp500","Px fut nasdaq"] else new_beta
+                k: 1
+                if k not in ["Px fut SX5E", "Px fut sp500", "Px fut nasdaq"]
+                else new_beta
                 for k in self.__universe_returns.columns
             }
-            weights = {
+            weights_leveraged = {
                 sec: w * leverage_to_use.get(sec, 1) for sec, w in weights.items()
             }
             # Append the current weights to the list
-            weights_histo.append(weights)
+            weights_histo.append(weights_leveraged)  # type: ignore
             # Create numpy weights for matrix operations
             weights_np = np.array(list(weights.values()))
+            # Current date returns
+            returns = row.loc[list(weights.keys())].to_numpy()
+
             # Append the current return to the list
-            returns_histo.append((returns @ weights_np))
+            returns_histo.append((returns @ np.array(list(weights_leveraged.values()))))
 
             # Compute the weight drift due to assets price fluctuations
             weights = compute_weights_drift(
                 list(weights.keys()),
                 weights_np,
-                (returns * weights_np),
+                (returns * weights_np),  # type: ignore
             )
 
         # The returns of the ptf
@@ -261,7 +252,7 @@ class Backtester:
 
         # Store the beta and regime in a dataframe for later analysis
         ptf_regime_beta_df = pd.DataFrame(
-            regimes_histo,
+            regimes_histo[1:],
         ).set_index("Date")
 
         if print_metrics is True:
@@ -276,21 +267,10 @@ class Backtester:
                 ptf_regime_beta_df,
             )
         if print_metrics is True:
-            return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df, ptf_metrics_df
+            return (
+                ptf_and_bench,
+                ptf_weights_df,
+                ptf_regime_beta_df,
+                ptf_metrics_df,
+            )
         return ptf_and_bench, ptf_weights_df, ptf_regime_beta_df
-
-
-def allocate_assets(list_of_assets: List[str], ester_weight: float) -> Dict[str, float]:
-    assert (
-        "ESTR_ETF" in list_of_assets
-    ), "Error, provide a valid list of assets, it must contain the ESTR_ETF columns which is the monetary deposit rate."
-    assert 0 <= ester_weight <= 0.6, "Error equity allocation cannot be lower then 40 %"
-    list_of_assets.remove("ESTR_ETF")
-    weights = {
-        security: weight_base_1 * (1 - ester_weight)
-        for security, weight_base_1 in Allocation.equal_weighted_allocation(
-            list_of_assets
-        ).items()
-    }
-    weights["ESTR_ETF"] = ester_weight
-    return weights

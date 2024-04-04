@@ -11,7 +11,7 @@ def beta_convergence(
     long_term_value: float,
     smoothing_lambda: float,
 ) -> Union[float, npt.NDArray[np.float32]]:
-    """_summary_
+    """Recurrent function that exponential smooth a beta in order to converge to a long term value.
 
     Args:
         current_value ( Union[float,npt.NDArray[np.float32]]): The current beta exposure calculated

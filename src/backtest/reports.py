@@ -244,7 +244,7 @@ def plot_from_trade_df(
         [
             (chunks["returns"].mean(), chunks["strategy_returns"].mean())
             for chunks in np.array_split(
-                df_rets.sort_values(by="returns", ascending=True), 10
+                df_rets.sort_values(by="returns", ascending=True), 7
             )
         ]
     )
@@ -263,9 +263,9 @@ def plot_from_trade_df(
         color="blue",
         label="Benchmark",
     )
-    ax[1, 1].set_xlabel("Return deciles", fontsize=15)
+    ax[1, 1].set_xlabel("Return bucket", fontsize=15)
     ax[1, 1].set_ylabel("Average return", fontsize=15)
-    ax[1, 1].set_title(f"Performance by decile", fontsize=20)
+    ax[1, 1].set_title(f"Performance by bucket", fontsize=20)
     ax[1, 1].grid()
     ax[1, 1].legend(fontsize=15)
 

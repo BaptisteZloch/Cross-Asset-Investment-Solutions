@@ -150,10 +150,12 @@ class Universe:
             set(Universe.__universe.columns.to_list()).intersection(
                 [
                     "EUROPE _VALUE_FACTOR",
+                    "WATER_ESG",
                     "STOXX_EUROPE 600_HEALTHCARE",
                     "EPSILON_TREND",
                     "Px fut SX5E",
                     "Px fut sp500",
+                    "Px fut nasdaq",
                     "SX5T",
                     "SPTR500N",
                     "ESTR_ETF",
@@ -168,10 +170,10 @@ class Universe:
                 [
                     "WATER_ESG",
                     "STOXX_EUROPE 600_TECHNOLOGY",
-                    "EPSILON_TREND",
                     "Px fut SX5E",
                     "Px fut sp500",
                     "Px fut nasdaq",
+                    "EPSILON_TREND",
                     "SX5T",
                     "SPTR500N",
                     "ESTR_ETF",

@@ -9,21 +9,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 from utility.types import RegimeDetectionModels
-
-
-def normalize_regime(signal: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-    """Function that normalize the regime with 1 = Bearish regime and 0 bullish regime. historically the proportion of bullish regime is higher. We applied this rule here.
-
-    Args:
-        signal (npt.NDArray[np.float32]): The 1 and 0 signal detected with the detection algorithm.
-
-    Returns:
-        npt.NDArray[np.float32]: The normalized regime
-    """
-    proportion = np.mean(signal)
-    if proportion >= 0.5:
-        return -1 * signal + 1
-    return signal
+from utility.utils import normalize_regime
 
 
 def detect_market_regime(
@@ -41,7 +27,7 @@ def detect_market_regime(
         market_regime_detection_algorithm (RegimeDetectionModels): The desired model to use for market regime detection.
         scale_data (bool, optional): Whether to scale the data or not using the scaler_type. Defaults to True.
         scaler_type (Literal[&quot;robust&quot;, &quot;standard&quot;, &quot;minmax&quot;], optional): The scaler type used to scale the data. If scale_data is False this argument is ignored. Defaults to "standard".
-
+        **kwargs: "algorithm" in {"viterbi", "map"}
     Returns:
         npt.NDArray[np.float32]: The regime detected on the market data.
     """
@@ -89,11 +75,9 @@ def detect_market_regime(
             max_iter=100,
             bisecting_strategy="largest_cluster",
         )
-    elif market_regime_detection_algorithm == "jump_model":
-        raise NotImplementedError()
     else:
         raise ValueError(
-            "Provide a valid market_regime_detection_algorithm among : hmm, gaussian_mixture, jump_model"
+            "Provide a valid market_regime_detection_algorithm among : hmm, gaussian_mixture"
         )
     MODEL.fit(X)
     return normalize_regime(MODEL.predict(X))
