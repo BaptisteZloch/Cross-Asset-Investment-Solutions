@@ -42,7 +42,7 @@ def detect_market_regime(
         X = SCALER_STRING_TO_SCALER[scaler_type].fit_transform(market_data)
     else:
         X = market_data
-    if market_regime_detection_algorithm == "hmm":
+    if market_regime_detection_algorithm == RegimeDetectionModels.HIDDEN_MARKOV_MODEL:
         MODEL = GaussianHMM(
             n_components=2,
             covariance_type="full",
@@ -53,7 +53,7 @@ def detect_market_regime(
             verbose=False,
             implementation="log",
         )
-    elif market_regime_detection_algorithm == "gaussian_mixture":
+    elif market_regime_detection_algorithm == RegimeDetectionModels.GAUSSIAN_MIXTURE:
         MODEL = GaussianMixture(
             n_components=2,
             covariance_type="full",
@@ -62,11 +62,11 @@ def detect_market_regime(
             verbose=0,
             max_iter=100,
         )
-    elif market_regime_detection_algorithm == "kmeans":
+    elif market_regime_detection_algorithm == RegimeDetectionModels.KMEANS:
         MODEL = KMeans(
             n_clusters=2, init="k-means++", random_state=42, verbose=0, max_iter=100
         )
-    elif market_regime_detection_algorithm == "bisecting_kmeans":
+    elif market_regime_detection_algorithm == RegimeDetectionModels.BISECTING_KMEANS:
         MODEL = BisectingKMeans(
             n_clusters=2,
             init="k-means++",
